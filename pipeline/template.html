@@ -571,7 +571,7 @@ function renderCtx(){
       Object.keys(TEAMS).sort((a,b)=>TEAMS[a].localeCompare(TEAMS[b])).map(t=>`<option value="${t}">${TEAMS[t]} (${FREEPOOL.filter(i=>DATA.plays[i].o===t).length} snaps)</option>`)).join("");
     ctx.innerHTML = `<label style="display:flex;align-items:center;gap:8px">Offense <select id="teamSel">${opts}</select></label><span id="teamNote" style="margin-left:10px"></span>`;
     $("teamSel").value=team;
-    $("teamSel").addEventListener("change",e=>{ team=e.target.value; store.set("td_team",team); freeOrder=[]; freeIdx=-1; renderCtx(); next(); });
+    $("teamSel").addEventListener("change",e=>{ team=e.target.value; store.set("td_team",team); freeOrder=[]; freeIdx=-1; fourthOrder=[]; fourthIdx=-1; renderCtx(); next(); });
     if(mode==="fourth"){ const n4=FOURTH.plays.filter(p=>team==="ALL"||p.o===team).length; $("teamSel").querySelectorAll("option").forEach(o=>{ const n=FOURTH.plays.filter(p=>o.value==="ALL"||p.o===o.value).length; o.textContent=(o.value==="ALL"?"All teams":TEAMS[o.value])+` (${n} 4th downs)`; }); $("teamNote").textContent="Go, punt or kick. Graded by win probability."; return; }
     $("teamNote").textContent = team==="ALL" ? "" : `${FREEPOOL.filter(i=>DATA.plays[i].o===team).length} of their ${DATA.team_totals[team].toLocaleString()} graded 3rd and 4th downs, ${DATA.seasons}.`;
   }
