@@ -161,6 +161,7 @@
     .sub{margin:8px 0;min-height:0} .sub .links{margin-left:0;gap:12px;font-size:14px}
   }
   @media (max-width:979px){ .calls{order:1} .hint{order:2} .reads{order:3;border-top:1px solid var(--rule)} .sheet{order:4} }
+  .luckline{color:var(--ink)!important;background:var(--surface2);border-left:4px solid var(--dd);padding:8px 10px;border-radius:6px}
   .sheet .next{position:sticky;bottom:10px;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:2}
   @media (min-width:980px){
     .sheet{padding:14px 16px 14px}
@@ -693,6 +694,9 @@ function realFinish(i){
   if(i>=0) stamp(realLabel(shown), !!shown.ok, shown.sim ? `Your ${CALLNAME[mine].toLowerCase()}` : `Real play: ${rp.o} ${rp.c==="run"?"ran it":rp.c==="pa"?"ran play-action":"passed"}`);
   [...$("calls").children].forEach((b,j)=>{ if(r.ok.includes(CALLS[j])) b.classList.add("answer"); });
   const verdict = toss?"Toss-up. This one doesn't count.":i<0?"The clock ran out. Delay of game counts as a wrong call.":right?`Right call. Streak ${stats.streak}.`:"Wrong call.";
+  const worked = !!(shown&&shown.ok);
+  const why = (toss||i<0) ? "" : (!right && worked) ? `<p class="lede luckline">It worked this time, but it was still the wrong call. ${CALLNAME[mine]} converts ${Math.round(r[mine].p*100)}% here and ${okName(r).toLowerCase()} converts ${Math.round(r[r.best].p*100)}%. Over a season of snaps like this, your call loses. You're graded on the decision, not the result.</p>`
+    : (right && !worked) ? `<p class="lede luckline">Right call, it just didn't work this time. Even the best call here only converts ${Math.round(r[mine].p*100)}% of the time. Your streak keeps going.</p>` : "";
   const head = toss?"Every call converts about the same here.":`${okName(r)} was the call.`;
   const [dk,box]=rp.k.split("|");
   const lookTxt = dk.endsWith("goal") ? `${ord(rp.dn).toLowerCase()} and goal from the ${dk.replace(" goal","")}` : `${ord(rp.dn).toLowerCase()} and ${dk} with ${box} in the box`;
@@ -706,6 +710,7 @@ function realFinish(i){
   const dl = mode==="daily";
   const nextLabel = dl ? (daily.res.length>=10?"See today's score":`Next snap (${daily.res.length+1} of 10)`) : "Next snap";
   $("sheet").innerHTML = `<div class="verdict ${right||toss?"":"bad"}" style="${toss?"color:var(--muted)":""}">${verdict}</div><h3>${head}</h3>
+    ${why}
     <p class="lede">How often each call converted on ${lookTxt}, ${DATA.seasons}.</p>
     <ul class="bars">${bars}</ul>
     ${shown&&shown.sim?`<p class="lede" style="color:var(--ink)">Your ${CALLNAME[mine].toLowerCase()} was ${shown.ok?"good for a first down":"stopped"} in this simulation, based on the ${Math.round(r[mine].p*100)}% rate above. ${rp.o} made a different call:</p>`:""}
@@ -814,6 +819,7 @@ function fourthFinish(i){
   const what = rp.ch==="go" ? `${rp.o} went for it and ${rp.ok?"converted":"was stopped"}.` : rp.ch==="kick" ? `${rp.o} kicked a ${rp.kd||rp.yl+17}-yard field goal. ${rp.ok?"Good.":"No good."}` : `${rp.o} punted.`;
   $("sheet").innerHTML = `<div class="verdict ${right?"":"bad"}">${i<0?"The clock ran out. Delay of game counts as a wrong call.":right?`Right call. Streak ${stats.streak}.`:"Wrong call."}</div>
     <h3>${CH4NAME[rp.best]} was the call.</h3>
+    ${i<0?"":(!right && shown && shown.ok) ? `<p class="lede luckline">It worked this time, but ${CH4NAME[rp.best].toLowerCase()} gave ${rp.o} a better chance to win. You're graded on the decision, not the result.</p>` : (right && shown && shown.ch!=="punt" && !shown.ok) ? `<p class="lede luckline">Right call, it just didn't work this time. Your streak keeps going.</p>` : ""}
     <p class="lede">${rp.o}'s chance to win after each choice. ${CH4NAME[rp.best]} comes out ${gap.toFixed(1)} points ahead.</p>
     <ul class="bars">${bars}</ul>
     ${shown&&shown.sim?`<p class="lede" style="color:var(--ink)">Your ${CH4NAME[mine].toLowerCase()} was simulated from the real rates above. ${rp.o} made a different call:</p>`:""}
