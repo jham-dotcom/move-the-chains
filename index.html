@@ -208,7 +208,7 @@
 <div class="modal" id="how"><div class="box">
   <h2>How to play</h2>
   <p>You're calling the play on a real NFL 3rd or 4th down from 2022–2026. Before the snap you see what the offense saw: how many defenders are in the box, what personnel the defense has on the field, and your own formation.</p>
-  <p>Call Run, Pass or Play-action before the play clock hits zero. Then watch what the real team did. Your call is graded by how often it converted in that exact look across thousands of real snaps, so a right call can still get stopped.</p>
+  <p>Call Run, Pass or Play-action before the play clock hits zero. Then watch what the real team did. You get credit when your call moves the chains. After each snap you also see how often every call converts in that look across thousands of real snaps, so you can learn the smart call.</p>
   <p><b>Daily 10</b> is the same ten snaps for everyone, once a day, with a film-room recap at the end. <b>Free play</b> lets you pick a team. <b>4th down</b> is the big decision: go for it, punt or kick, graded by which choice gave the team the best chance to win.</p>
   <button class="next" data-close>Got it</button></div></div>
 <div class="modal" id="nums"><div class="box" style="max-width:780px"><h2>The numbers</h2><div id="numsBody"></div><button class="next" data-close>Close</button></div></div>
@@ -686,18 +686,22 @@ function realPick(i){
 }
 function realFinish(i){
   phase="result";
-  const r=DATA.rates[rp.k], mine=i>=0?CALLS[i]:null, right=mine!==null&&r.ok.includes(mine);
-  const toss=r.ok.length===3, realOk=r.ok.includes(rp.c), dist=rp.k.split("|")[0];
-  if(!toss){ score(right); addVs(dist,right,realOk); }
-  logRecent(ord(rp.dn)+" & "+(rp.yl<=rp.ds?"Goal":rp.ds), spotText(rp.yl), rp.o, mine?CALLNAME[mine]:"Clock", toss?"t":right?"r":"w");
+  const r=DATA.rates[rp.k], mine=i>=0?CALLS[i]:null;
+  const worked = i>=0 && !!(shown&&shown.ok);
+  const right = worked;                      // a first down (or touchdown) is a right call
+  const realOk = !!rp.ok, dist=rp.k.split("|")[0], numbersOk = r.ok.includes(rp.c);
+  score(right); addVs(dist,right,realOk);
+  logRecent(ord(rp.dn)+" & "+(rp.yl<=rp.ds?"Goal":rp.ds), spotText(rp.yl), rp.o, mine?CALLNAME[mine]:"Clock", right?"r":"w");
   if(mode==="daily"){ daily.res.push(right?1:0); (daily.coach=daily.coach||[]).push(realOk?1:0); (daily.pick=daily.pick||[]).push(mine); saveDaily(); renderCtx(); }
   if(i>=0) stamp(realLabel(shown), !!shown.ok, shown.sim ? `Your ${CALLNAME[mine].toLowerCase()}` : `Real play: ${rp.o} ${rp.c==="run"?"ran it":rp.c==="pa"?"ran play-action":"passed"}`);
   [...$("calls").children].forEach((b,j)=>{ if(r.ok.includes(CALLS[j])) b.classList.add("answer"); });
-  const verdict = toss?"Toss-up. This one doesn't count.":i<0?"The clock ran out. Delay of game counts as a wrong call.":right?`Right call. Streak ${stats.streak}.`:"Wrong call.";
-  const worked = !!(shown&&shown.ok);
-  const why = (toss||i<0) ? "" : (!right && worked) ? `<p class="lede luckline">It worked this time, but it was still the wrong call. ${CALLNAME[mine]} converts ${Math.round(r[mine].p*100)}% here and ${okName(r).toLowerCase()} converts ${Math.round(r[r.best].p*100)}%. Over a season of snaps like this, your call loses. You're graded on the decision, not the result.</p>`
-    : (right && !worked) ? `<p class="lede luckline">Right call, it just didn't work this time. Even the best call here only converts ${Math.round(r[mine].p*100)}% of the time. Your streak keeps going.</p>` : "";
-  const head = toss?"Every call converts about the same here.":`${okName(r)} was the call.`;
+  const td = worked && shown.y>=rp.yl;
+  const verdict = i<0 ? "The clock ran out. Delay of game counts as a wrong call." : right ? `Right call. ${td?"Touchdown":"First down"}. Streak ${stats.streak}.` : "Wrong call. Stopped short.";
+  const toss = r.ok.length===3, best = r[r.best];
+  const head = i<0 ? "Delay of game." : right ? `${CALLNAME[mine]} moved the chains.` : `${CALLNAME[mine]} came up short.`;
+  const tip = (i<0) ? "" : toss ? `<p class="lede luckline">By the numbers, every call converts about the same here.</p>`
+    : r.ok.includes(mine) ? (right ? `<p class="lede luckline">That's also the smartest call here: ${CALLNAME[mine].toLowerCase()} converts ${Math.round(r[mine].p*100)}% in this look.</p>` : `<p class="lede luckline">By the numbers it was still a good call. ${CALLNAME[mine]} converts ${Math.round(r[mine].p*100)}% here, the best of the three. It just didn't work this time.</p>`)
+    : `<p class="lede luckline">Tip: ${okName(r).toLowerCase()} converts more often here (${Math.round(best.p*100)}%) than ${CALLNAME[mine].toLowerCase()} (${Math.round(r[mine].p*100)}%).</p>`;
   const [dk,box]=rp.k.split("|");
   const lookTxt = dk.endsWith("goal") ? `${ord(rp.dn).toLowerCase()} and goal from the ${dk.replace(" goal","")}` : `${ord(rp.dn).toLowerCase()} and ${dk} with ${box} in the box`;
   const bars = CALLS.map(c=>{ const x=r[c], ok=r.ok.includes(c);
@@ -706,15 +710,15 @@ function realFinish(i){
   const desc=rp.desc.replace(/^\(\d+:\d+\)\s*/,"");
   const defl = rp.cv?`<div class="def">The defense was in ${rp.cv}${rp.mz&&!/man/i.test(rp.cv)?" ("+rp.mz.toLowerCase()+")":""}${rp.pr?` and rushed ${rp.pr}`:""}.</div>`:"";
   const T=vsTotal();
-  const vsLine = T.n ? `<p class="lede" style="color:var(--ink)">On the ${T.n} graded ${T.n===1?"snap":"snaps"} you've called, you made the right call <b>${T.y}</b> ${T.y===1?"time":"times"}. The real NFL play callers on ${T.n===1?"that snap":"those same snaps"}: <b>${T.c}</b>.</p>` : "";
+  const vsLine = T.n ? `<p class="lede" style="color:var(--ink)">You've moved the chains on <b>${T.y}</b> of ${T.n} ${T.n===1?"snap":"snaps"}. The real NFL offenses on those same snaps: <b>${T.c}</b>.</p>` : "";
   const dl = mode==="daily";
   const nextLabel = dl ? (daily.res.length>=10?"See today's score":`Next snap (${daily.res.length+1} of 10)`) : "Next snap";
-  $("sheet").innerHTML = `<div class="verdict ${right||toss?"":"bad"}" style="${toss?"color:var(--muted)":""}">${verdict}</div><h3>${head}</h3>
-    ${why}
+  $("sheet").innerHTML = `<div class="verdict ${right?"":"bad"}">${verdict}</div><h3>${head}</h3>
+    ${tip}
     <p class="lede">How often each call converted on ${lookTxt}, ${DATA.seasons}.</p>
     <ul class="bars">${bars}</ul>
-    ${shown&&shown.sim?`<p class="lede" style="color:var(--ink)">Your ${CALLNAME[mine].toLowerCase()} was ${shown.ok?"good for a first down":"stopped"} in this simulation, based on the ${Math.round(r[mine].p*100)}% rate above. ${rp.o} made a different call:</p>`:""}
-    <div class="happened"><b>${rp.o} ${CALLVERB[rp.c]} and ${rp.ok?"converted":"was stopped"}. ${realOk?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${desc}</p>${defl}</div>
+    ${shown&&shown.sim?`<p class="lede" style="color:var(--ink)">Your ${CALLNAME[mine].toLowerCase()} was simulated from the ${Math.round(r[mine].p*100)}% rate above. ${rp.o} made a different call:</p>`:""}
+    <div class="happened"><b>${rp.o} ${CALLVERB[rp.c]} and ${rp.ok?"converted":"was stopped"}. ${numbersOk?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${desc}</p>${defl}</div>
     ${vsLine}
     <button class="next" id="nextBtn">${nextLabel}<kbd>Enter</kbd></button>`;
   $("sheet").hidden=false; $("reads").hidden=true; $("calls").hidden=true;
@@ -725,7 +729,7 @@ function filmRoom(){
   const rows = DAILY.map((pi,k)=>{ const p=DATA.plays[pi], r=DATA.rates[p.k], me=(daily.pick||[])[k], ok=daily.res[k]===1;
     const dd = ord(p.dn)+" & "+(p.yl<=p.ds?"Goal":p.ds);
     return `<tr><td style="text-align:left">${dd}, ${spotText(p.yl)}<small>${p.o} vs ${p.d}, ${p.s}</small></td><td class="${ok?"ok":"no"}">${me?CALLNAME[me]:"Clock ran out"}</td><td>${CALLNAME[p.c]}<small>${p.ok?"converted":"stopped"}</small></td><td>${okName(r)}</td></tr>`; }).join("");
-  return `<h3 style="font-size:22px;margin:14px 0 4px">Film room</h3><table class="nums film"><tr><th style="text-align:left">Snap</th><th>You</th><th>Real call</th><th>Right call</th></tr>${rows}</table>`;
+  return `<h3 style="font-size:22px;margin:14px 0 4px">Film room</h3><table class="nums film"><tr><th style="text-align:left">Snap</th><th>You</th><th>Real call</th><th>Best call by the numbers</th></tr>${rows}</table>`;
 }
 function dailyEnd(){
   phase="done";
@@ -800,7 +804,9 @@ function fourthPick(i){
 }
 function fourthFinish(i){
   phase="result";
-  const mine=i>=0?CH4[i]:null, right=mine===rp.best, coachOk=rp.ch===rp.best;
+  const mine=i>=0?CH4[i]:null;
+  const right = i>=0 && (shown.ch==="punt" ? rp.best==="punt" : !!shown.ok);
+  const coachOk = rp.ch==="punt" ? rp.best==="punt" : !!rp.ok;
   score(right); vs4.n++; vs4.y+=right?1:0; vs4.c+=coachOk?1:0; store.set("td_vs4",vs4);
   logRecent("4th & "+(rp.yl<=rp.ds?"Goal":rp.ds), spotText(rp.yl), rp.o, mine?CH4NAME[mine]:"Clock", right?"r":"w");
   if(i>=0){
@@ -818,25 +824,26 @@ function fourthFinish(i){
   const gap = (maxv - Math.max(...Object.entries(vals).filter(([c,v])=>v!=null&&c!==rp.best).map(([,v])=>v)))*100;
   const what = rp.ch==="go" ? `${rp.o} went for it and ${rp.ok?"converted":"was stopped"}.` : rp.ch==="kick" ? `${rp.o} kicked a ${rp.kd||rp.yl+17}-yard field goal. ${rp.ok?"Good.":"No good."}` : `${rp.o} punted.`;
   $("sheet").innerHTML = `<div class="verdict ${right?"":"bad"}">${i<0?"The clock ran out. Delay of game counts as a wrong call.":right?`Right call. Streak ${stats.streak}.`:"Wrong call."}</div>
-    <h3>${CH4NAME[rp.best]} was the call.</h3>
-    ${i<0?"":(!right && shown && shown.ok) ? `<p class="lede luckline">It worked this time, but ${CH4NAME[rp.best].toLowerCase()} gave ${rp.o} a better chance to win. You're graded on the decision, not the result.</p>` : (right && shown && shown.ch!=="punt" && !shown.ok) ? `<p class="lede luckline">Right call, it just didn't work this time. Your streak keeps going.</p>` : ""}
+    <h3>${i<0?"Delay of game.":shown.ch==="go"?(shown.ok?"You went for it and converted.":"You went for it and came up short."):shown.ch==="kick"?(shown.ok?"The kick is good.":"The kick is no good."):(right?"Smart punt.":"You punted when the numbers said not to.")}</h3>
+    ${i<0?"":mine===rp.best?`<p class="lede luckline">${CH4NAME[rp.best]} was also the smartest call by win probability.</p>`:`<p class="lede luckline">Tip: ${CH4NAME[rp.best].toLowerCase()} gave ${rp.o} a better chance to win here.</p>`}
     <p class="lede">${rp.o}'s chance to win after each choice. ${CH4NAME[rp.best]} comes out ${gap.toFixed(1)} points ahead.</p>
     <ul class="bars">${bars}</ul>
     ${shown&&shown.sim?`<p class="lede" style="color:var(--ink)">Your ${CH4NAME[mine].toLowerCase()} was simulated from the real rates above. ${rp.o} made a different call:</p>`:""}
-    <div class="happened"><b>${what} ${coachOk?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${rp.desc.replace(/^\(\d+:\d+\)\s*/,"")}</p></div>
+    <div class="happened"><b>${what} ${rp.ch===rp.best?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${rp.desc.replace(/^\(\d+:\d+\)\s*/,"")}</p></div>
     <p class="lede" style="color:var(--ink)">On ${vs4.n} ${vs4.n===1?"4th down":"4th downs"} you've called, you made the right call <b>${vs4.y}</b> ${vs4.y===1?"time":"times"}. The real coaches on ${vs4.n===1?"that snap":"those same snaps"}: <b>${vs4.c}</b>.</p>
     <button class="next" id="nextBtn">Next 4th down<kbd>Enter</kbd></button>`;
   $("sheet").hidden=false; $("reads").hidden=true; $("calls").hidden=true; $("nextBtn").addEventListener("click",next); $("hint").textContent="";
 }
 
 // ---------- you vs the NFL ----------
+function leagueConv(d){ let n=0,ok=0; for(const [k,c] of Object.entries(DATA.rates)){ if(k.split("|")[0]!==d) continue; for(const cl of CALLS){ if(c[cl].raw!=null){ n+=c[cl].n; ok+=c[cl].raw*c[cl].n; } } } return n?ok/n:0; }
 function leagueRight(d){ let n=0,ok=0; for(const [k,c] of Object.entries(DATA.rates)){ if(k.split("|")[0]!==d||c.ok.length===3) continue; for(const cl of CALLS){ n+=c[cl].n; if(c.ok.includes(cl)) ok+=c[cl].n; } } return n?ok/n:0; }
 function renderYou(){
   const dists=["1","2","3-4","5-7","8-10","11+","1 goal","2 goal","3-4 goal"], T=vsTotal(), pc=(a,b)=>b?Math.round(a/b*100)+"%":"–";
-  const rows=dists.map(d=>{ const v=vs[d]||{n:0,y:0,c:0}; return `<tr><th>${d.replace(" goal"," (goal to go)")}</th><td>${v.n?`${v.y}/${v.n}`:"–"}<small>${pc(v.y,v.n)}</small></td><td>${v.n?`${v.c}/${v.n}`:"–"}<small>${pc(v.c,v.n)}</small></td><td>${Math.round(leagueRight(d)*100)}%</td></tr>`; }).join("");
-  $("youBody").innerHTML = (T.n?`<p>On the ${T.n} graded snaps you've called, you made the right call <b>${pc(T.y,T.n)}</b> of the time. The real play callers on those same snaps: <b>${pc(T.c,T.n)}</b>.</p>`:`<p>Call a few real snaps and your record against the pros shows up here.</p>`)+
-   `<table class="nums"><tr><th>Yards to go</th><th>You</th><th>NFL callers, same snaps</th><th>NFL callers, all snaps</th></tr>${rows}</table>
-   <p style="font-size:14px;color:var(--muted)">A right call is the one that converted most often in that look, ${DATA.seasons}. Toss-ups don't count for you or for them. Look at 2 and 3–4 yards: that's where real play callers miss most, because they throw when the run converts better.</p>`;
+  const rows=dists.map(d=>{ const v=vs[d]||{n:0,y:0,c:0}; return `<tr><th>${d.replace(" goal"," (goal to go)")}</th><td>${v.n?`${v.y}/${v.n}`:"–"}<small>${pc(v.y,v.n)}</small></td><td>${v.n?`${v.c}/${v.n}`:"–"}<small>${pc(v.c,v.n)}</small></td><td>${Math.round(leagueConv(d)*100)}%</td></tr>`; }).join("");
+  $("youBody").innerHTML = (T.n?`<p>You've moved the chains on <b>${pc(T.y,T.n)}</b> of the ${T.n} snaps you've called. The real NFL offenses on those same snaps: <b>${pc(T.c,T.n)}</b>.</p>`:`<p>Call a few real snaps and your record against the pros shows up here.</p>`)+
+   `<table class="nums"><tr><th>Yards to go</th><th>You</th><th>NFL callers, same snaps</th><th>NFL conversion rate</th></tr>${rows}</table>
+   <p style="font-size:14px;color:var(--muted)">You get credit when your call moves the chains, and the real offense gets credit when its real play did. The last column is how often NFL offenses convert from that distance overall, ${DATA.seasons}.</p>`;
 }
 // ---------- the numbers ----------
 function renderNumbers(){
