@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Move the Chains</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+<style>
+  :root,[data-theme="board"]{
+    --bg:#e7ebf0; --surface:#ffffff; --surface2:#f2f4f7; --ink:#14213d; --muted:#5a6a83; --rule:#d3d9e1;
+    --bugbg:#14213d; --bugink:#ffffff; --dd:#ffd23f; --ddink:#14213d;
+    --run:#1d8348; --pass:#2259c4; --pa:#c27400; --stop:#c62f2f; --go:#1d8348;
+    --yellow:#ffd23f; --field:#2f8a3a; --field2:#2a7e35; --stampbg:rgba(255,255,255,.92);
+  }
+  [data-theme="night"]{
+    --bg:#0d1626; --surface:#142036; --surface2:#1a2944; --ink:#eaf0fa; --muted:#93a3bd; --rule:#2a3a58;
+    --bugbg:#05090f; --bugink:#eaf0fa; --dd:#ffd23f; --ddink:#14213d;
+    --run:#3fbf74; --pass:#5b8ff0; --pa:#f0a32a; --stop:#ff6b5e; --go:#3fbf74; --stampbg:rgba(13,22,38,.9);
+  }
+  [data-theme="gameday"]{
+    --bg:#2b0d12; --surface:#3b141a; --surface2:#48191f; --ink:#fbf1ea; --muted:#d1a7a2; --rule:#5f2a31;
+    --bugbg:#140507; --bugink:#fbf1ea; --dd:#ffd23f; --ddink:#2b0d12;
+    --run:#4cc47e; --pass:#79a6ff; --pa:#ffb347; --stop:#ff7a6b; --go:#4cc47e; --stampbg:rgba(43,13,18,.9);
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Archivo,system-ui,sans-serif;font-size:16px;line-height:1.45}
+  button,select{font:inherit;color:inherit}
+  :focus-visible{outline:3px solid var(--pass);outline-offset:2px}
+  .wrap{max-width:860px;margin:0 auto;padding:18px 16px 40px}
+  /* header */
+  .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .mark{font-stretch:112%;font-weight:900;font-size:25px;letter-spacing:-.5px;margin-right:auto;display:flex;align-items:center;gap:10px}
+  .mark svg{flex:none}
+  .modes{display:flex;background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:3px}
+  .modes button{border:0;background:none;padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:600;font-size:15px;color:var(--muted)}
+  .modes button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+  .record{display:flex;gap:11px;font-size:14px;color:var(--muted)}
+  .record b{display:block;font-stretch:115%;font-weight:800;font-size:20px;color:var(--ink);line-height:1.1}
+  .iconbtn{border:1px solid var(--rule);background:var(--surface);border-radius:10px;padding:7px 11px;cursor:pointer;font-size:14px;font-weight:600}
+  .sub{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 10px;min-height:38px;font-size:15px;color:var(--muted)}
+  .sub .links{margin-left:auto;display:flex;gap:14px}
+  .linkbtn{background:none;border:0;padding:0;cursor:pointer;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+  .dots{display:flex;gap:5px}
+  .dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--rule);background:var(--surface)}
+  .dots i.r{background:var(--go);border-color:var(--go)} .dots i.w{background:var(--stop);border-color:var(--stop)} .dots i.now{border-color:var(--ink)}
+  select{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:6px 8px;color:var(--ink)}
+  /* broadcast bug */
+  .stage{background:var(--surface);border:1px solid var(--rule);border-radius:14px;overflow:hidden}
+  .bug{display:flex;align-items:stretch;background:var(--bugbg);color:var(--bugink);font-stretch:110%}
+  .bug .tm{display:flex;align-items:center;gap:8px;padding:10px 14px;font-weight:700;font-size:17px;border-right:1px solid rgba(255,255,255,.12)}
+  .bug .tm b{font-size:24px;font-weight:800}
+  .bug .tm.off::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dd)}
+  .bug .per{padding:10px 14px;display:flex;align-items:center;font-weight:600;font-size:16px;opacity:.85}
+  .bug .dd{background:var(--dd);color:var(--ddink);padding:6px 18px;display:flex;flex-direction:column;justify-content:center;font-stretch:125%;font-weight:900;font-size:26px;line-height:1}
+  .bug .dd small{font-stretch:100%;font-weight:600;font-size:13px;margin-top:3px}
+  .bug .ring{margin-left:auto;display:flex;align-items:center;padding:0 12px}
+  .ring text{font-family:Archivo;font-weight:800;font-size:15px;fill:var(--bugink)}
+  @media (max-width:620px){.bug{flex-wrap:wrap}.bug .per{display:none}.bug .dd{font-size:21px}}
+  .fieldwrap{position:relative}
+  svg#field{display:block;width:100%;height:auto}
+  .stamp{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.8);font-stretch:125%;font-weight:900;font-size:46px;letter-spacing:-.5px;padding:6px 20px;border-radius:10px;background:var(--stampbg);opacity:0;transition:opacity .2s, transform .25s;pointer-events:none;white-space:nowrap;border-bottom:6px solid currentColor}
+  .stamp.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  .stamp.good{color:var(--go)} .stamp.bad{color:var(--stop)}
+  @media (max-width:620px){.stamp{font-size:28px}}
+  .tag{position:absolute;left:10px;top:10px;background:var(--stampbg);color:var(--ink);padding:4px 10px;border-radius:6px;font-size:14px;font-weight:700}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);padding:8px 14px;border-bottom:1px solid var(--rule)}
+  /* reads: a row of the call sheet */
+  .reads{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--rule)}
+  .reads div{padding:12px 14px;border-right:1px solid var(--rule)}
+  .reads div:last-child{border-right:0}
+  .reads span{display:block;font-size:13px;color:var(--muted)}
+  .reads b{display:block;font-stretch:120%;font-weight:800;font-size:24px;line-height:1.15;margin:2px 0}
+  .reads p{margin:0;font-size:14px;color:var(--muted);line-height:1.3}
+  @media (max-width:620px){.reads{grid-template-columns:1fr}.reads div{border-right:0;border-bottom:1px solid var(--rule)}}
+  /* calls */
+  .calls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px}
+  @media (max-width:620px){.calls{grid-template-columns:1fr}}
+  .call{--c:var(--pass);position:relative;text-align:left;background:var(--surface2);border:2px solid transparent;border-top:6px solid var(--c);border-radius:10px;padding:12px 12px 13px;cursor:pointer;transition:transform .08s, opacity .2s}
+  .call:hover{transform:translateY(-2px);border-color:var(--c);border-top-width:6px}
+  .call .n{display:block;font-stretch:120%;font-weight:800;font-size:21px;line-height:1.15}
+  .call .d{display:block;font-size:14px;color:var(--muted);margin-top:3px;line-height:1.3}
+  .call kbd{position:absolute;right:10px;top:10px;font:600 12px Archivo;border:1.5px solid var(--rule);border-radius:4px;padding:0 5px;color:var(--muted)}
+  .call.run{--c:var(--run)} .call.pass{--c:var(--pass)} .call.pa{--c:var(--pa)}
+  .calls.locked .call{cursor:default;transform:none}
+  .call.dim{opacity:.35} .call.picked{border-color:var(--c);opacity:1}
+  .call.answer{background:var(--c);color:#fff;opacity:1} .call.answer .d{color:rgba(255,255,255,.85)} .call.answer kbd{color:#fff;border-color:rgba(255,255,255,.6)}
+  .hint{padding:0 14px 14px;font-size:14px;color:var(--muted)}
+  /* result sheet */
+  .sheet{padding:16px 18px 18px;border-top:1px solid var(--rule)}
+  .sheet[hidden]{display:none}
+  .verdict{font-weight:700;font-size:15px;color:var(--go)} .verdict.bad{color:var(--stop)}
+  .sheet h3{font-stretch:118%;font-weight:850;font-size:30px;line-height:1.1;margin:2px 0 6px;letter-spacing:-.3px}
+  .sheet .lede{color:var(--muted);margin:0 0 10px;max-width:62ch}
+  .bars{list-style:none;padding:0;margin:0 0 14px}
+  .bars li{display:grid;grid-template-columns:130px 1fr 54px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--rule)}
+  .bars .nm{font-weight:700}
+  .bars .nm small{display:block;font-weight:500;color:var(--muted);font-size:13px}
+  .bars .track{height:14px;background:var(--surface2);border-radius:7px;overflow:hidden}
+  .bars .fill{height:100%;border-radius:7px;background:var(--c)}
+  .bars li.no .fill{opacity:.35}
+  .bars .pc{font-stretch:115%;font-weight:800;font-size:18px;text-align:right}
+  .bars .meta{grid-column:2/4;font-size:13px;color:var(--muted);margin-top:-4px}
+  .happened{background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+  .happened b{display:block;margin-bottom:2px}
+  .happened p{margin:0;font-size:15px;color:var(--muted)}
+  .happened .def{margin-top:8px;font-size:14px;color:var(--ink)}
+  .next{display:block;width:100%;border:0;border-radius:10px;background:var(--ink);color:var(--bg);padding:13px;font-stretch:115%;font-weight:800;font-size:18px;cursor:pointer}
+  .next kbd{font:600 12px Archivo;border:1.5px solid currentColor;border-radius:4px;padding:0 5px;margin-left:8px;opacity:.7}
+  .ghost{display:block;width:100%;margin-top:8px;border:1px solid var(--rule);background:none;border-radius:10px;padding:11px;font-weight:700;cursor:pointer}
+  .score{font-stretch:125%;font-weight:900;font-size:64px;line-height:1;margin:6px 0}
+  .grid10{font-size:26px;letter-spacing:2px;margin:6px 0 10px}
+  .sharebox{width:100%;font:15px Archivo;border:1px solid var(--rule);border-radius:8px;padding:8px;background:var(--surface2);color:var(--ink);resize:none}
+  /* modals */
+  .modal{position:fixed;inset:0;background:rgba(10,15,25,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:5}
+  .modal.show{display:flex}
+  .modal .box{background:var(--surface);color:var(--ink);border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:20px 22px}
+  .modal h2{font-stretch:120%;font-weight:850;font-size:26px;margin:0 0 10px}
+  .modal p{max-width:66ch}
+  .modal label{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--rule);font-weight:600}
+  .nums{width:100%;border-collapse:collapse;margin:10px 0 12px;font-size:14px}
+  .nums th,.nums td{border:1px solid var(--rule);padding:7px 5px;text-align:center}
+  .nums th{color:var(--muted);font-weight:600}
+  .nums td{font-weight:700}
+  .nums td small{display:block;font-weight:500;color:var(--muted)}
+  .nums td.c-run{box-shadow:inset 0 -4px 0 var(--run)} .nums td.c-pass{box-shadow:inset 0 -4px 0 var(--pass)} .nums td.c-pa{box-shadow:inset 0 -4px 0 var(--pa)}
+  .film td.ok{color:var(--go)} .film td.no{color:var(--stop)}
+  .key{display:flex;gap:14px;font-size:13px;color:var(--muted)} .key i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body data-theme="board">
+<div class="wrap">
+  <header class="top">
+    <div class="mark"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="7" fill="var(--ink)"/><path d="M8.5 7v16M21.5 7v16" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.5 9.5 Q15 17 21.5 9.5" fill="none" stroke="var(--dd)" stroke-width="2.4" stroke-dasharray="2.2 1.6" stroke-linecap="round"/><path d="M6 23h5M19 23h5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>Move the Chains</div>
+    <nav class="modes" role="tablist" aria-label="Game mode">
+      <button role="tab" data-mode="daily">Daily 10</button>
+      <button role="tab" data-mode="free">Free play</button>
+      <button role="tab" data-mode="fourth">4th down</button>
+    </nav>
+    <div class="record"><span>Streak<b id="sStreak">0</b></span><span>Best<b id="sBest">0</b></span><span>Record<b id="sRW">0–0</b></span></div>
+    <button class="iconbtn" id="setBtn">Settings</button>
+  </header>
+  <div class="sub"><div id="ctx"></div><div class="links"><button class="linkbtn" id="howBtn">How to play</button><button class="linkbtn" id="youBtn">You vs. the NFL</button><button class="linkbtn" id="numsBtn">The numbers</button></div></div>
+  <section class="stage" aria-live="polite">
+    <div class="bug" id="bug"></div>
+    <div class="fieldwrap" id="fw"><svg id="field" viewBox="0 0 533 340" role="img" aria-label="Pre-snap alignment"></svg><div class="stamp" id="stamp"></div><div class="tag" id="tag" style="display:none"></div></div>
+    <div class="legend" id="legend"><span>O offense</span><span>X defense</span><span><b style="color:#7fb2ff">━</b> line of scrimmage</span><span><b style="color:#f2e21c">━</b> line to gain</span></div>
+    <div class="reads" id="reads"></div>
+    <div class="calls" id="calls"></div>
+    <div class="hint" id="hint"></div>
+    <div class="sheet" id="sheet" hidden></div>
+  </section>
+</div>
+
+<div class="modal" id="how"><div class="box">
+  <h2>How to play</h2>
+  <p>You're calling the play on a real NFL 3rd or 4th down from 2022–2026. Before the snap you see what the offense saw: how many defenders are in the box, what personnel the defense has on the field, and your own formation.</p>
+  <p>Call Run, Pass or Play-action before the play clock hits zero. Then watch what the real team did. Your call is graded by how often it converted in that exact look across thousands of real snaps, so a right call can still get stopped.</p>
+  <p><b>Daily 10</b> is the same ten snaps for everyone, once a day, with a film-room recap at the end. <b>Free play</b> lets you pick a team. <b>4th down</b> is the big decision: go for it, punt or kick, graded by which choice gave the team the best chance to win.</p>
+  <button class="next" data-close>Got it</button></div></div>
+<div class="modal" id="nums"><div class="box" style="max-width:780px"><h2>The numbers</h2><div id="numsBody"></div><button class="next" data-close>Close</button></div></div>
+<div class="modal" id="you"><div class="box" style="max-width:640px"><h2>You vs. NFL play callers</h2><div id="youBody"></div><button class="next" data-close>Close</button></div></div>
+<div class="modal" id="settings"><div class="box" style="max-width:420px">
+  <h2>Settings</h2>
+  <label>Play clock <select id="clockSel">
+    <option value="5">5 sec (hurry-up)</option><option value="10">10 sec</option><option value="15" selected>15 sec (regular)</option>
+    <option value="20">20 sec</option><option value="25">25 sec (college clock)</option><option value="30">30 sec</option>
+    <option value="40">40 sec (NFL play clock)</option><option value="0">Off</option></select></label>
+  <label>Theme <select id="themeSel"><option value="board">Whiteboard</option><option value="night">Night game</option><option value="gameday">Game day</option></select></label>
+  <button class="next" data-close>Done</button></div></div>
+<script id="realdata" type="application/json">__GAME_DATA__</script>
+<script id="fourthdata" type="application/json">__FOURTH_DATA__</script>
+<script>
+const FORM = {LT:[22.65,-0.6],LG:[24.65,-0.6],C:[26.65,-0.6],RG:[28.65,-0.6],RT:[30.65,-0.6],
+  TE:[33.2,-0.8],QB:[26.65,-5],RB:[29,-5],X:[5,-0.8],H:[13,-1],Z:[48,-0.8]};
+const OL = ["LT","LG","C","RG","RT"];
+const OLABEL = {QB:"QB",RB:"RB",FB:"FB",RB3:"RB",TE:"TE",TE2:"TE",TE3:"TE",X:"X",H:"H",Z:"Z",S2:"H",W5:"W"};
+
+const $ = id => document.getElementById(id);
+const SVGNS = "http://www.w3.org/2000/svg";
+const PX = x => x*10, PY = y => (24-y)*10;
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function spotText(y){ return y===50 ? "MID 50" : (y<50 ? "OPP "+y : "OWN "+(100-y)); }
+function ord(d){ return ["1st","2nd","3rd","4th"][d-1]; }
+function goalToGo(s){ return s.ytg <= s.dist; }
+
+
+let els = {};
+function el(tag, attrs, parent){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+
+function drawField(s){
+  const svg = $("field"); svg.innerHTML=""; els={};
+  // turf stripes by 5-yard bands
+  for(let y=-10;y<24;y++){
+    const yl = s.ytg - y; // yards to goal at this line
+    const band = Math.floor((yl)/5);
+    el("rect",{x:0,y:PY(y+1),width:533,height:10,fill: band%2===0 ? "var(--field)":"var(--field2)"},svg);
+  }
+  // end zone
+  if(s.ytg < 24){
+    el("rect",{x:0,y:PY(Math.min(24,s.ytg+10)),width:533,height:PY(s.ytg)-PY(Math.min(24,s.ytg+10)),fill:"#1f6a2c"},svg);
+    const t=el("text",{x:266,y:PY(s.ytg+5)+10,"text-anchor":"middle","font-family":"Archivo","font-weight":800,"font-size":30,fill:"rgba(255,255,255,.18)","letter-spacing":"6"},svg); t.textContent="END ZONE";
+    if(s.ytg+10 < 24){
+      el("rect",{x:0,y:0,width:533,height:PY(s.ytg+10),fill:"#0e2617"},svg);
+      el("line",{x1:0,x2:533,y1:PY(s.ytg+10),y2:PY(s.ytg+10),stroke:"rgba(255,255,255,.9)","stroke-width":3},svg);
+    }
+  }
+  // yard lines + hashes
+  for(let y=-10;y<=24;y++){
+    const yl = s.ytg - y;
+    if(yl<-10 || yl>100) continue;
+    if(yl<0){ continue; }
+    if(yl%5===0) el("line",{x1:0,x2:533,y1:PY(y),y2:PY(y),stroke:"rgba(255,255,255,"+(yl===0?".9":".55")+")","stroke-width":yl===0?3:1.4},svg);
+    else { [235.8,297.3].forEach(hx=>el("line",{x1:hx-4,x2:hx+4,y1:PY(y),y2:PY(y),stroke:"rgba(255,255,255,.45)","stroke-width":1.2},svg));
+           [3,530].forEach(hx=>el("line",{x1:hx-3,x2:hx+3,y1:PY(y),y2:PY(y),stroke:"rgba(255,255,255,.35)","stroke-width":1.2},svg)); }
+    if(yl%10===0 && yl>0 && yl<100){
+      const n = yl<=50 ? yl : 100-yl;
+      [70,463].forEach(nx=>{ const t=el("text",{x:nx,y:PY(y)+7,"text-anchor":"middle","font-family":"Archivo","font-weight":800,"font-size":20,fill:"rgba(255,255,255,.35)"},svg); t.textContent=n; });
+    }
+  }
+  // LOS & line to gain
+  el("line",{x1:0,x2:533,y1:PY(0),y2:PY(0),stroke:"#7fb2ff","stroke-width":2.5,opacity:.9},svg);
+  if(!goalToGo(s)) el("line",{x1:0,x2:533,y1:PY(s.dist),y2:PY(s.dist),stroke:"#f2e21c","stroke-width":2.5,opacity:.95},svg);
+  // layers
+  els.routes = el("g",{},svg);
+  els.players = el("g",{},svg);
+  // offense
+  els.off = {};
+  for(const id in F){
+    const g = el("g",{},els.players);
+    el("circle",{cx:0,cy:0,r:7,fill:"rgba(16,43,27,.35)",stroke:"#fff","stroke-width":2.3},g);
+    if(OLABEL[id]){ const t=el("text",{x:0,y:19,"text-anchor":"middle","font-family":"Archivo","font-weight":700,"font-size":10,fill:"rgba(255,255,255,.8)"},g); t.textContent=OLABEL[id]; }
+    els.off[id]=g;
+  }
+  // defense
+  els.def = {};
+  s.def.forEach(([id,lab])=>{
+    const g = el("g",{},els.players);
+    el("line",{x1:-6,y1:-6,x2:6,y2:6,stroke:"var(--yellow)","stroke-width":3,"stroke-linecap":"round"},g);
+    el("line",{x1:6,y1:-6,x2:-6,y2:6,stroke:"var(--yellow)","stroke-width":3,"stroke-linecap":"round"},g);
+    if(!["DL","DE","DT"].includes(lab)){ const t=el("text",{x:0,y:-10,"text-anchor":"middle","font-family":"Archivo","font-weight":700,"font-size":10,fill:"var(--yellow)",opacity:.9},g); t.textContent=lab; }
+    els.def[id]=g;
+  });
+  // ball
+  els.ball = el("ellipse",{cx:0,cy:0,rx:3.6,ry:2.4,fill:"#8a4b20",stroke:"#fff","stroke-width":.8},svg);
+  // initial positions
+  for(const id in F) place(els.off[id], F[id]);
+  s.def.forEach(([id,,x,y])=>place(els.def[id],[x,y]));
+  place(els.ball,[F.C[0],0]);
+}
+function place(g,[x,y]){ g.setAttribute("transform","translate("+PX(x).toFixed(1)+","+PY(y).toFixed(1)+")"); }
+
+// ---------- Geometry ----------
+function plen(p){ let L=0; for(let i=1;i<p.length;i++) L+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]); return L; }
+function along(p,t){
+  if(p.length===1) return p[0];
+  t=Math.max(0,Math.min(1,t)); const L=plen(p)*t; let acc=0;
+  for(let i=1;i<p.length;i++){ const d=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);
+    if(acc+d>=L){ const f=d?(L-acc)/d:0; return [p[i-1][0]+(p[i][0]-p[i-1][0])*f, p[i-1][1]+(p[i][1]-p[i-1][1])*f]; } acc+=d; }
+  return p[p.length-1];
+}
+const lerp=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+
+
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function buildForm(p){
+  const f={LT:[22.65,-0.6],LG:[24.65,-0.6],C:[26.65,-0.6],RG:[28.65,-0.6],RT:[30.65,-0.6]};
+  f.QB = p.fm==="gun"?[26.65,-5]:p.fm==="pistol"?[26.65,-4]:[26.65,-1.3];
+  const backY = p.fm==="gun"?-5:-7;
+  if(p.rb>=1) f.RB = p.fm==="gun"?[29,-5]:[26.65,backY];
+  if(p.rb>=2) f.FB = p.fm==="gun"?[24.3,-5]:[26.65,-4.3];
+  if(p.rb>=3) f.RB3=[31.5,-4.5];
+  const tes=[["TE",[33.2,-0.8]],["TE2",[20.1,-0.8]],["TE3",[35.3,-1.4]]];
+  for(let i=0;i<Math.min(3,p.te);i++) f[tes[i][0]]=tes[i][1];
+  const wrs=[["X",[5,-0.8]],["Z",[48,-0.8]],["H",[13,-1]],["S2",[40,-1]],["W5",[18,-1.2]]];
+  for(let i=0;i<Math.min(5,p.wr);i++) f[wrs[i][0]]=wrs[i][1];
+  return f;
+}
+const RECV = ["X","Z","H","S2","W5","TE","TE2","TE3"];
+function buildDef(p,f){
+  const d=[]; const bx=clamp(p.bx,3,10), dl=clamp(p.dl,1,bx), nonbox=11-bx;
+  for(let i=0;i<dl;i++) d.push(["D"+i,"DL",26.65+(i-(dl-1)/2)*2.6,1]);
+  const m=bx-dl, lby = p.yl<=5?2.5:4.5;
+  for(let i=0;i<m;i++) d.push(["L"+i,"LB",26.65+(i-(m-1)/2)*3.6,lby]);
+  const wr = RECV.filter(id=>f[id] && !id.startsWith("TE")).sort((a,b)=>Math.abs(f[b][0]-26.65)-Math.abs(f[a][0]-26.65));
+  let deep = nonbox>=wr.length+1 ? Math.min(2,nonbox-wr.length) : (nonbox>=3?1:0);
+  const cov = nonbox-deep;
+  const targets = wr.concat(RECV.filter(id=>f[id]&&id.startsWith("TE")));
+  const cy = p.yl<=10?3:6;
+  for(let k=0;k<cov;k++){
+    const t = f[targets[k % Math.max(1,targets.length)]] || [26.65+(k%2?8:-8),0];
+    d.push(["C"+k, k<2?"CB":"NB", t[0]+(t[0]<26.65?0.8:-0.8), cy + (k>=targets.length?3:0)]);
+  }
+  const dy = Math.min(13, Math.max(5, p.yl+1));
+  if(deep===1) d.push(["S0","S",26.65,dy+1]);
+  if(deep===2){ d.push(["S0","S",18,dy+0.5]); d.push(["S1","S",35,dy+0.5]); }
+  return d;
+}
+function pickTarget(p,f){
+  const rec = RECV.filter(id=>f[id]); if(!rec.length) return null;
+  const pl = p.pl||"right", ay = p.ay==null?7:p.ay;
+  let side = rec.filter(id=> pl==="left"? f[id][0]<26.65 : pl==="right"? f[id][0]>26.65 : true);
+  if(!side.length) side=rec;
+  if(pl==="middle"){ const te=side.find(id=>id.startsWith("TE")); if(te) return te; return side.sort((a,b)=>Math.abs(f[a][0]-26.65)-Math.abs(f[b][0]-26.65))[0]; }
+  side.sort((a,b)=>Math.abs(f[b][0]-26.65)-Math.abs(f[a][0]-26.65)); // outermost first
+  return ay>=12 ? side[0] : side[side.length-1];
+}
+function buildRealPlay(p,f){
+  const QB=f.QB, rb=f.RB||f.FB, paths={};
+  const drop = p.fm==="uc" ? [QB,[QB[0],-7]] : [QB,[QB[0],QB[1]-2.2]];
+  const holeX = p.rl==="left"?21.5:p.rl==="right"?31.8:26.65;
+  if(p.c==="run"){
+    if(p.sn || !rb){
+      paths.QB=[QB,[(holeX+QB[0])/2, QB[1]+(QB[1]<-2?1:0.2)],[holeX,0.3]];
+      return {play:{kind:"run",carrier:"QB",catchIdx:0,paths},o:{t:"run",g:p.y,dx:p.rl==="left"?-1:p.rl==="right"?1:0}};
+    }
+    const id=f.RB?"RB":"FB", mesh=[(QB[0]+rb[0])/2+0.4,(QB[1]+rb[1])/2];
+    paths[id]=[rb,mesh,[holeX,0.3]]; paths.QB=[QB,[mesh[0]-0.6,mesh[1]+0.2]];
+    return {play:{kind:"run",carrier:id,catchIdx:1,paths},o:{t:"run",g:p.y,dx:p.rl==="left"?-1.5:p.rl==="right"?1.5:0}};
+  }
+  // passing plays
+  let qbPath = drop.map(q=>q.slice());
+  if(p.c==="pa" && rb){
+    const id=f.RB?"RB":"FB", mesh=[(QB[0]+rb[0])/2+0.4,(QB[1]+rb[1])/2];
+    paths[id]=[rb,mesh,[26.2,0]]; qbPath=[QB,[mesh[0]-0.5,mesh[1]],[QB[0]+1.5,Math.min(QB[1],-1.3)-5]];
+  } else if(rb){ const id=f.RB?"RB":"FB"; paths[id]=[rb,[rb[0]+1,rb[1]+1.5]]; }
+  paths.QB=qbPath;
+  if(p.pt==="scramble"){
+    const s = p.pl==="left"?-1:1, last=qbPath[qbPath.length-1];
+    paths.QB=[...qbPath,[last[0]+6*s,last[1]+1],[last[0]+8*s,0.5]];
+    RECV.filter(id=>f[id]).forEach((id,i)=>{ paths[id]=[f[id],[f[id][0],9+(i*3)%7]]; });
+    return {play:{kind:"run",carrier:"QB",catchIdx:0,passSet:true,paths},o:{t:"run",g:p.y}};
+  }
+  const tgt = pickTarget(p,f);
+  RECV.filter(id=>f[id]&&id!==tgt).forEach((id,i)=>{ paths[id]=[f[id],[f[id][0],9+(i*3)%7]]; });
+  if(!tgt){ return {play:{kind:"pass",carrier:"QB",catchIdx:0,passSet:true,paths},o:{t:"sack",g:Math.min(p.y,-1)}}; }
+  const st=f[tgt], ay = p.ay==null?7:p.ay, cY = Math.max(-3,ay);
+  let cX;
+  if(p.pl==="middle") cX = st[0]+(26.65-st[0])*0.75;
+  else if(ay>=12) cX = clamp(st[0]+(st[0]<26.65?2:-2),3,50);
+  else cX = st[0]+(((st[0]<26.65)?14:39)-st[0])*0.5;
+  paths[tgt] = cY<=1.5 ? [st,[cX,cY]] : [st,[st[0],cY*0.55],[cX,cY]];
+  const ci = paths[tgt].length-1;
+  const play={kind:"pass",carrier:tgt,catchIdx:ci,paths};
+  if(p.pt==="sack") return {play,o:{t:"sack",g:p.y}};
+  if(p.pt==="complete") return {play,o:{t:"complete",g:p.y,dx:p.pl==="left"?-1:p.pl==="right"?1:0}};
+  return {play,o:{t:"inc"}};
+}
+function realLabel(p){
+  if(p.ok) return p.y>=p.yl ? "TOUCHDOWN":"FIRST DOWN";
+  return p.pt==="sack"?"SACK":p.pt==="int"?"INTERCEPTED":p.pt==="inc"?"INCOMPLETE":"STOPPED";
+}
+const pct = x=>Math.round(x*100)+"%";
+
+function animatePlay(play,o,done){
+  const paths = {};
+  // build each offensive player's path
+  for(const id in F){
+    if(play.paths[id]) paths[id]=play.paths[id].map(p=>p.slice());
+    else if(OL.includes(id)) paths[id]=[F[id], [F[id][0], F[id][1] + ((play.kind==="run"&&!play.passSet)?1:-1.3)]];
+    else if(id==="QB") paths[id]=[F.QB,[F.QB[0],-6.5]];
+    else if(play.kind==="run") paths[id]=[F[id],[F[id][0],F[id][1]+2]];
+    else paths[id]=[F[id],[F[id][0],F[id][1]-0.6]];
+  }
+  const car = play.carrier;
+  const catchPt = paths[car][play.catchIdx];
+  let endPt;
+  if(o.t==="sack"){ paths.QB.push([F.QB[0], o.g]); endPt = paths.QB[paths.QB.length-1]; }
+  else if(o.t==="inc"){ endPt = [catchPt[0]+0.8, catchPt[1]+1.4]; }
+  else { const last=paths[car][paths[car].length-1]; endPt=[Math.max(1,Math.min(52.3,last[0]+(o.dx||0))), o.g]; paths[car].push(endPt); }
+
+  // pick a tackler if the outcome didn't name one: nearest defender to where the play ends
+  if(!o.by || !sc.def.some(d=>d[0]===o.by)){
+    let best=null,bd=1e9; sc.def.forEach(([id,,x,y])=>{ const d=Math.hypot(x-endPt[0],y-endPt[1]); if(d<bd){bd=d;best=id;} });
+    o = {...o, by:best};
+  }
+  // draw routes
+  for(const id in paths){
+    if(OL.includes(id) && !play.paths[id]) continue;
+    const p = paths[id]; if(plen(p)<1.2) continue;
+    const isCar = id===car;
+    el("polyline",{points:p.map(q=>PX(q[0])+","+PY(q[1])).join(" "),fill:"none",stroke:isCar?"#fff":"rgba(255,255,255,.55)","stroke-width":isCar?2.4:1.6,"stroke-dasharray":isCar?"0":"5 4","stroke-linecap":"round","stroke-linejoin":"round"},els.routes);
+  }
+  // timing
+  const carPath = paths[car];
+  const tCatch = o.t==="sack" ? 2 : plen(carPath.slice(0,play.catchIdx+1))/Math.max(0.01,plen(carPath));
+  const window = play.kind==="run" ? 0.08 : 0.3;
+  const tThrow = Math.max(0.05, tCatch-window);
+  const fastIds = new Set([...OL,"QB"]);
+  // defense targets
+  const defT = {};
+  sc.def.forEach(([id,,x,y])=>{
+    const start=[x,y];
+    if(id===o.by) defT[id]={start,end:[endPt[0]+(o.t==="inc"?0.3:0.4), endPt[1]+0.9], until: o.t==="inc"?tCatch:1};
+    else defT[id]={start,end:lerp(start,endPt,0.32),until:1};
+  });
+  const D = 2600, t0 = performance.now();
+  function frame(now){
+    const t = Math.min(1,(now-t0)/D);
+    for(const id in paths){
+      let pt;
+      if(id===car) pt = along(paths[id], t);
+      else if(id==="QB" && o.t==="sack") pt = along(paths[id], t);
+      else if(fastIds.has(id)) pt = along(paths[id], Math.min(1,t/0.4));
+      else pt = along(paths[id], t);
+      place(els.off[id], pt);
+    }
+    sc.def.forEach(([id])=>{ const d=defT[id]; place(els.def[id], lerp(d.start,d.end,ease(Math.min(1,t/d.until)))); });
+    // ball
+    let b;
+    const qbPos = (o.t==="sack") ? along(paths.QB,t) : along(paths.QB,Math.min(1,t/0.4));
+    if(o.t==="sack") b = qbPos;
+    else if(car==="QB") b = along(paths.QB,t);
+    else if(t<tThrow) b = qbPos;
+    else if(t<tCatch) b = lerp(along(paths.QB,Math.min(1,tThrow/0.4)), catchPt, (t-tThrow)/(tCatch-tThrow));
+    else if(o.t==="inc") b = lerp(catchPt,endPt,Math.min(1,(t-tCatch)/0.08));
+    else b = along(paths[car], t);
+    els.ball.setAttribute("cx",PX(b[0])); els.ball.setAttribute("cy",PY(b[1]));
+    if(t<1) raf=requestAnimationFrame(frame); else done();
+  }
+  raf=requestAnimationFrame(frame);
+}
+
+
+// ================= APP =================
+const DATA = JSON.parse(document.getElementById("realdata").textContent);
+const CALLS = ["run","pass","pa"];
+const CALLNAME = {run:"Run",pass:"Pass",pa:"Play-action"};
+const CALLDESC = {run:"Hand it off or keep it. Win up front.",pass:"Straight dropback. Beat them through the air.",pa:"Fake the run, then throw behind it."};
+const CALLVERB = {run:"ran it",pass:"dropped back to pass",pa:"ran play-action"};
+const TEAMS = {ARI:"Arizona Cardinals",ATL:"Atlanta Falcons",BAL:"Baltimore Ravens",BUF:"Buffalo Bills",CAR:"Carolina Panthers",CHI:"Chicago Bears",CIN:"Cincinnati Bengals",CLE:"Cleveland Browns",DAL:"Dallas Cowboys",DEN:"Denver Broncos",DET:"Detroit Lions",GB:"Green Bay Packers",HOU:"Houston Texans",IND:"Indianapolis Colts",JAX:"Jacksonville Jaguars",KC:"Kansas City Chiefs",LA:"Los Angeles Rams",LAC:"Los Angeles Chargers",LV:"Las Vegas Raiders",MIA:"Miami Dolphins",MIN:"Minnesota Vikings",NE:"New England Patriots",NO:"New Orleans Saints",NYG:"New York Giants",NYJ:"New York Jets",PHI:"Philadelphia Eagles",PIT:"Pittsburgh Steelers",SEA:"Seattle Seahawks",SF:"San Francisco 49ers",TB:"Tampa Bay Buccaneers",TEN:"Tennessee Titans",WAS:"Washington Commanders"};
+function okName(r){ const n=CALLS.filter(c=>r.ok.includes(c)).map(c=>CALLNAME[c]); return n.length===1?n[0]:n.length===2?n[0]+" or "+n[1].toLowerCase():"Any call"; }
+const isToss = p => DATA.rates[p.k].ok.length===3;
+const FREEPOOL = [...DATA.plays.keys()].filter(i=>!isToss(DATA.plays[i]) || i%4===0);
+const store = { get(k,d){ try{ const v=localStorage.getItem(k); return v===null?d:JSON.parse(v);}catch(e){return d;} }, set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} } };
+
+let stats = Object.assign({streak:0,best:0,right:0,wrong:0}, store.get("td_stats",{}));
+let vs = store.get("td_vs",{}); // {dist:{n,y,c}}
+function addVs(d,you,coach){ const v=vs[d]||(vs[d]={n:0,y:0,c:0}); v.n++; v.y+=you?1:0; v.c+=coach?1:0; store.set("td_vs",vs); }
+function vsTotal(){ return Object.values(vs).reduce((a,v)=>({n:a.n+v.n,y:a.y+v.y,c:a.c+v.c}),{n:0,y:0,c:0}); }
+function saveStats(){ store.set("td_stats",stats); }
+function renderHeader(){ $("sStreak").textContent=stats.streak; $("sBest").textContent=stats.best; $("sRW").textContent=stats.right+"–"+stats.wrong; }
+function score(right){ if(right){stats.right++;stats.streak++;stats.best=Math.max(stats.best,stats.streak);} else {stats.wrong++;stats.streak=0;} saveStats(); renderHeader(); }
+
+let mode = store.get("td_mode","daily"), team = store.get("td_team","ALL");
+let F = FORM, sc=null, rp=null, phase="idle", raf=null, timerStart=0, timerDur=15000, choice=null, lastOutcome=null;
+let freeOrder=[], freeIdx=-1;
+if(!["daily","free","fourth"].includes(mode)) mode="daily";
+
+// ---------- Daily 10 ----------
+const today = new Date().toLocaleDateString("en-CA");
+function seeded(str){ let h=1779033703^str.length; for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19;} return function(){ h=Math.imul(h^h>>>16,2246822507); h=Math.imul(h^h>>>13,3266489909); h^=h>>>16; let t=(h+=0x6D2B79F5); t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; }; }
+function dailyList(dateStr){
+  const rnd=seeded("thirddown-"+dateStr), idx=[...DATA.plays.keys()].filter(i=>!isToss(DATA.plays[i]));
+  for(let i=idx.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+  const want=["1","2","3-4","5-7","8-10","11+","1","2","3-4","5-7"], picked=[], conv=[0,0], teams=new Set();
+  for(const d of want){
+    const k = idx.find(i=>{ const p=DATA.plays[i]; return !picked.includes(i) && p.k.split("|")[0]===d && conv[p.ok]<5 && !teams.has(p.o); });
+    if(k!==undefined){ picked.push(k); conv[DATA.plays[k].ok]++; teams.add(DATA.plays[k].o); }
+  }
+  for(const i of idx){ if(picked.length>=10) break; if(!picked.includes(i)) picked.push(i); }
+  const order=picked.slice(); for(let i=order.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+  return order;
+}
+const pid = p => `${p.s}-${p.wk}-${p.o}-${p.q}-${p.t}-${p.dn}`;
+const PIDX = new Map(DATA.plays.map((p,i)=>[pid(p),i]));
+let daily = store.get("td_daily",{date:today,res:[]});
+if(daily.date!==today) daily={date:today,res:[]};
+let DAILY = (daily.ids||[]).map(id=>PIDX.get(id));
+if(DAILY.length!==10 || DAILY.some(i=>i===undefined)){ DAILY = dailyList(today); daily.ids = DAILY.map(i=>pid(DATA.plays[i])); store.set("td_daily",daily); }
+function saveDaily(){ store.set("td_daily",daily); }
+
+// ---------- context row ----------
+function renderCtx(){
+  document.querySelectorAll(".modes button").forEach(b=>b.setAttribute("aria-selected", b.dataset.mode===mode));
+  const ctx=$("ctx");
+  if(mode==="daily"){
+    const dots = Array.from({length:10},(_,i)=>`<i class="${daily.res[i]===1?"r":daily.res[i]===0?"w":i===daily.res.length?"now":""}"></i>`).join("");
+    const d = new Date(today+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+    ctx.innerHTML = `<div style="display:flex;align-items:center;gap:10px"><span>${d}</span><span class="dots" aria-label="${daily.res.length} of 10 played">${dots}</span></div>`;
+  } else if(mode==="free"||mode==="fourth"){
+    const opts = [`<option value="ALL">All teams (${FREEPOOL.length.toLocaleString()} snaps)</option>`].concat(
+      Object.keys(TEAMS).sort((a,b)=>TEAMS[a].localeCompare(TEAMS[b])).map(t=>`<option value="${t}">${TEAMS[t]} (${FREEPOOL.filter(i=>DATA.plays[i].o===t).length} snaps)</option>`)).join("");
+    ctx.innerHTML = `<label style="display:flex;align-items:center;gap:8px">Offense <select id="teamSel">${opts}</select></label><span id="teamNote" style="margin-left:10px"></span>`;
+    $("teamSel").value=team;
+    $("teamSel").addEventListener("change",e=>{ team=e.target.value; store.set("td_team",team); freeOrder=[]; freeIdx=-1; renderCtx(); next(); });
+    if(mode==="fourth"){ const n4=FOURTH.plays.filter(p=>team==="ALL"||p.o===team).length; $("teamSel").querySelectorAll("option").forEach(o=>{ const n=FOURTH.plays.filter(p=>o.value==="ALL"||p.o===o.value).length; o.textContent=(o.value==="ALL"?"All teams":TEAMS[o.value])+` (${n} 4th downs)`; }); $("teamNote").textContent="Go, punt or kick. Graded by win probability."; return; }
+    $("teamNote").textContent = team==="ALL" ? "" : `${FREEPOOL.filter(i=>DATA.plays[i].o===team).length} of their ${DATA.team_totals[team].toLocaleString()} graded 3rd and 4th downs, ${DATA.seasons}.`;
+  }
+}
+
+// ---------- shared round pieces ----------
+function bug(off,os,def,ds,per,dd,spot){
+  $("bug").innerHTML = `<div class="tm off">${off} <b>${os}</b></div><div class="tm">${def} <b>${ds}</b></div><div class="per">${per}</div><div class="dd">${dd}<small>${spot}</small></div>
+   <div class="ring"><svg width="46" height="46" viewBox="0 0 46 46" aria-label="Play clock"><circle cx="23" cy="23" r="19" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="4"/><circle id="ringArc" cx="23" cy="23" r="19" fill="none" stroke="var(--dd)" stroke-width="4" stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="0" transform="rotate(-90 23 23)"/><text id="ringTxt" x="23" y="28" text-anchor="middle">–</text></svg></div>`;
+}
+function reads(rows){ $("reads").innerHTML = rows.map(r=>`<div><span>${r.l}</span><b>${r.v}</b><p>${r.n}</p></div>`).join(""); }
+function callButtons(list){ // list: [{cls,name,desc}]
+  const c=$("calls"); c.className="calls"; c.hidden=false; $("reads").hidden=false;
+  c.innerHTML = list.map((x,i)=>`<button class="call ${x.cls}" data-i="${i}"><kbd>${i+1}</kbd><span class="n">${x.name}</span><span class="d">${x.desc}</span></button>`).join("");
+  [...c.children].forEach(b=>b.addEventListener("click",()=>pick(+b.dataset.i)));
+}
+function lockCalls(i){ const c=$("calls"); c.classList.add("locked"); [...c.children].forEach((b,j)=>b.classList.add(j===i?"picked":"dim")); }
+function startClock(){
+  timerDur=(+$("clockSel").value)*1000; timerStart=performance.now(); cancelAnimationFrame(raf); tick();
+}
+function tick(){
+  if(phase!=="reading") return;
+  const arc=$("ringArc"), txt=$("ringTxt");
+  if(timerDur>0){
+    const left=1-(performance.now()-timerStart)/timerDur;
+    if(arc) arc.setAttribute("stroke-dashoffset", (119.4*(1-Math.max(0,left))).toFixed(1));
+    if(txt) txt.textContent = Math.max(0,Math.ceil(left*timerDur/1000));
+    if(left<=0){ delayOfGame(); return; }
+  } else if(txt) txt.textContent="∞";
+  raf=requestAnimationFrame(tick);
+}
+function resetStage(){ ["fw","legend","reads","calls"].forEach(id=>$(id).hidden=false); $("stamp").className="stamp"; $("tag").style.display="none"; $("sheet").hidden=true; $("sheet").innerHTML=""; $("hint").textContent="Press 1, 2 or 3, or tap a call."; }
+function stamp(text,good){ $("stamp").textContent=text; $("stamp").className="stamp show "+(good?"good":"bad"); }
+function delayOfGame(){ phase="result"; lockCalls(-1); stamp("DELAY OF GAME",false); if(mode==="fourth") fourthFinish(-1); else realFinish(-1); }
+
+function next(){
+  cancelAnimationFrame(raf); resetStage(); renderCtx();
+  if(mode==="fourth") return fourthNext();
+  if(mode==="daily"){
+    if(daily.res.length>=10) return dailyEnd();
+    rp = DATA.plays[DAILY[daily.res.length]];
+  } else {
+    const pool = team==="ALL" ? FREEPOOL.slice() : FREEPOOL.filter(i=>DATA.plays[i].o===team);
+    freeIdx++; if(freeIdx>=freeOrder.length){ freeOrder=shuffle(pool); freeIdx=0; }
+    rp = DATA.plays[freeOrder[freeIdx]];
+  }
+  realNext();
+}
+function pick(i){ if(phase!=="reading") return; if(mode==="fourth") fourthPick(i); else realPick(i); }
+
+// ---------- real snaps ----------
+function realNext(){
+  phase="reading"; choice=null;
+  F = buildForm(rp);
+  sc = {real:true, ytg:rp.yl, dist:rp.ds, down:rp.dn, def:buildDef(rp,F)};
+  drawField(sc);
+  const dd = ord(rp.dn)+" & "+(rp.yl<=rp.ds?"Goal":rp.ds);
+  const when = rp.st==="POST"?`${rp.s} playoffs`:`${rp.s}, week ${rp.wk}`;
+  bug(rp.o,rp.os,rp.d,rp.dsc,`${rp.q>4?"OT":"Q"+rp.q} ${rp.t}`,dd,`${spotText(rp.yl)} · ${when}`);
+  const boxNote = rp.bx<=5?"Light box. Few defenders near the line.":rp.bx===6?"Standard box.":rp.bx===7?"Heavy box. An extra defender is down near the line.":"Stacked box. Eight or more near the line.";
+  const pers = rp.db<=4?"Base":rp.db===5?"Nickel":"Dime";
+  const fmn = {gun:"Shotgun",pistol:"Pistol",uc:"Under center"}[rp.fm];
+  reads([{l:"Defenders in the box",v:rp.bx,n:boxNote},{l:"Their personnel",v:pers,n:`${rp.db} defensive backs, ${rp.dl} down linemen.`},{l:"Your personnel",v:`${rp.rb}${rp.te} personnel`,n:`${fmn} with ${rp.rb} RB, ${rp.te} TE, ${rp.wr} WR.`}]);
+  callButtons(CALLS.map(c=>({cls:c,name:CALLNAME[c],desc:CALLDESC[c]})));
+  startClock();
+}
+function realPick(i){
+  phase="playing"; choice=i; cancelAnimationFrame(raf); lockCalls(i);
+  $("hint").textContent="Here's what really happened.";
+  $("tag").textContent=`Real play: ${rp.o} ${CALLVERB[rp.c]}`; $("tag").style.display="block";
+  const {play,o}=buildRealPlay(rp,F);
+  animatePlay(play,o,()=>realFinish(i));
+}
+function realFinish(i){
+  phase="result";
+  const r=DATA.rates[rp.k], mine=i>=0?CALLS[i]:null, right=mine!==null&&r.ok.includes(mine);
+  const toss=r.ok.length===3, realOk=r.ok.includes(rp.c), dist=rp.k.split("|")[0];
+  if(!toss){ score(right); addVs(dist,right,realOk); }
+  if(mode==="daily"){ daily.res.push(right?1:0); (daily.coach=daily.coach||[]).push(realOk?1:0); (daily.pick=daily.pick||[]).push(mine); saveDaily(); renderCtx(); }
+  if(i>=0) stamp(realLabel(rp), !!rp.ok);
+  [...$("calls").children].forEach((b,j)=>{ if(r.ok.includes(CALLS[j])) b.classList.add("answer"); });
+  const verdict = toss?"Toss-up. This one doesn't count.":i<0?"The clock ran out. Delay of game counts as a wrong call.":right?`Right call. Streak ${stats.streak}.`:"Wrong call.";
+  const head = toss?"Every call converts about the same here.":`${okName(r)} was the call.`;
+  const [dk,box]=rp.k.split("|");
+  const lookTxt = dk.endsWith("goal") ? `${ord(rp.dn).toLowerCase()} and goal from the ${dk.replace(" goal","")}` : `${ord(rp.dn).toLowerCase()} and ${dk} with ${box} in the box`;
+  const bars = CALLS.map(c=>{ const x=r[c], ok=r.ok.includes(c);
+    const tags=[c===mine?"your call":"",c===rp.c?`${rp.o}'s call`:""].filter(Boolean).join(", ");
+    return `<li class="${ok?"":"no"}" style="--c:var(--${c})"><span class="nm">${CALLNAME[c]}${tags?`<small>${tags}</small>`:""}</span><span class="track"><span class="fill" style="display:block;width:${Math.round(x.p*100)}%"></span></span><span class="pc">${Math.round(x.p*100)}%</span><span class="meta">${x.n.toLocaleString()} real snaps in this look</span></li>`; }).join("");
+  const desc=rp.desc.replace(/^\(\d+:\d+\)\s*/,"");
+  const defl = rp.cv?`<div class="def">The defense was in ${rp.cv}${rp.mz&&!/man/i.test(rp.cv)?" ("+rp.mz.toLowerCase()+")":""}${rp.pr?` and rushed ${rp.pr}`:""}.</div>`:"";
+  const T=vsTotal();
+  const vsLine = T.n ? `<p class="lede" style="color:var(--ink)">On the ${T.n} graded ${T.n===1?"snap":"snaps"} you've called, you made the right call <b>${T.y}</b> ${T.y===1?"time":"times"}. The real NFL play callers on ${T.n===1?"that snap":"those same snaps"}: <b>${T.c}</b>.</p>` : "";
+  const dl = mode==="daily";
+  const nextLabel = dl ? (daily.res.length>=10?"See today's score":`Next snap (${daily.res.length+1} of 10)`) : "Next snap";
+  $("sheet").innerHTML = `<div class="verdict ${right||toss?"":"bad"}" style="${toss?"color:var(--muted)":""}">${verdict}</div><h3>${head}</h3>
+    <p class="lede">How often each call converted on ${lookTxt}, ${DATA.seasons}.</p>
+    <ul class="bars">${bars}</ul>
+    <div class="happened"><b>${rp.o} ${CALLVERB[rp.c]} and ${rp.ok?"converted":"was stopped"}. ${realOk?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${desc}</p>${defl}</div>
+    ${vsLine}
+    <button class="next" id="nextBtn">${nextLabel}<kbd>Enter</kbd></button>`;
+  $("sheet").hidden=false;
+  $("nextBtn").addEventListener("click",next);
+  $("hint").textContent="";
+}
+function filmRoom(){
+  const rows = DAILY.map((pi,k)=>{ const p=DATA.plays[pi], r=DATA.rates[p.k], me=(daily.pick||[])[k], ok=daily.res[k]===1;
+    const dd = ord(p.dn)+" & "+(p.yl<=p.ds?"Goal":p.ds);
+    return `<tr><td style="text-align:left">${dd}, ${spotText(p.yl)}<small>${p.o} vs ${p.d}, ${p.s}</small></td><td class="${ok?"ok":"no"}">${me?CALLNAME[me]:"Clock ran out"}</td><td>${CALLNAME[p.c]}<small>${p.ok?"converted":"stopped"}</small></td><td>${okName(r)}</td></tr>`; }).join("");
+  return `<h3 style="font-size:22px;margin:14px 0 4px">Film room</h3><table class="nums film"><tr><th style="text-align:left">Snap</th><th>You</th><th>Real call</th><th>Right call</th></tr>${rows}</table>`;
+}
+function dailyEnd(){
+  phase="done";
+  const n=daily.res.filter(x=>x===1).length, grid=daily.res.map(x=>x?"🟩":"🟥").join("");
+  const cn=(daily.coach||[]).filter(x=>x===1).length;
+  const d=new Date(today+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+  const share=`Move the Chains ${d}: ${n}/10 (NFL play callers: ${cn}/10)\n${grid}`;
+  ["fw","legend","reads","calls"].forEach(id=>$(id).hidden=true); $("hint").textContent="";
+  bug("TODAY","",`${n}/10`,"","Daily 10","Final",d);
+  const msLeft = new Date(new Date(today+"T00:00:00").getTime()+864e5)-new Date();
+  const h=Math.floor(msLeft/36e5), m=Math.floor(msLeft%36e5/6e4);
+  $("sheet").innerHTML = `<div class="verdict">Today's 10 is done.</div><div class="score">${n}/10</div><div class="grid10" aria-label="${n} right calls out of 10">${grid}</div>
+    <p style="margin:0 0 8px;font-weight:700">The real play callers on these snaps: ${cn}/10. ${n>cn?"You out-called them.":n===cn?"Dead even with the pros.":"They had the edge today."}</p>
+    <p class="lede">${n>=8?"That's a coordinator's day.":n>=6?"Solid. You'd keep your headset.":n>=4?"Some good reads, some film to watch.":"Rough day on the call sheet. Tomorrow's a new game."} A new set of snaps unlocks in ${h}h ${m}m.</p>
+    ${filmRoom()}
+    <textarea class="sharebox" id="shareTxt" rows="2" readonly>${share}</textarea>
+    <button class="next" id="copyBtn" style="margin-top:10px">Copy result</button>
+    <button class="ghost" id="toFree">Keep playing in Free play</button>`;
+  $("sheet").hidden=false;
+  $("copyBtn").addEventListener("click",async()=>{ try{ await navigator.clipboard.writeText(share); $("copyBtn").textContent="Copied"; }catch(e){ $("shareTxt").select(); $("copyBtn").textContent="Press Ctrl+C or Cmd+C to copy"; } });
+  $("toFree").addEventListener("click",()=>setMode("free"));
+}
+
+// ---------- 4th down ----------
+const FOURTH = JSON.parse(document.getElementById("fourthdata").textContent);
+const CH4 = ["go","punt","kick"], CH4NAME={go:"Go for it",punt:"Punt",kick:"Field goal"};
+let fourthOrder=[], fourthIdx=-1;
+let vs4 = store.get("td_vs4",{n:0,y:0,c:0});
+function fourthNext(){
+  const pool = team==="ALL" ? [...FOURTH.plays.keys()] : [...FOURTH.plays.keys()].filter(i=>FOURTH.plays[i].o===team);
+  fourthIdx++; if(fourthIdx>=fourthOrder.length){ fourthOrder=shuffle(pool.length?pool:[...FOURTH.plays.keys()]); fourthIdx=0; }
+  rp = FOURTH.plays[fourthOrder[fourthIdx]]; phase="reading"; choice=null;
+  F = buildForm(rp); sc={real:true,ytg:rp.yl,dist:rp.ds,down:4,def:buildDef(rp,F)}; drawField(sc);
+  const dd = "4th & "+(rp.yl<=rp.ds?"Goal":rp.ds);
+  const when = rp.st==="POST"?`${rp.s} playoffs`:`${rp.s}, week ${rp.wk}`;
+  bug(rp.o,rp.os,rp.d,rp.dsc,`Q${rp.q} ${rp.t}`,dd,`${spotText(rp.yl)} · ${when}`);
+  const diff=rp.os-rp.dsc, sit = diff===0?"Tied":diff>0?`Up ${diff}`:`Down ${-diff}`;
+  reads([
+    {l:"Field goal",v:rp.k==null?"Out of range":`${rp.yl+17} yards`,n:rp.k==null?"Too far to try one.":`Kickers make about ${Math.round(rp.pm*100)}% from here.`},
+    {l:"Going for it",v:`${Math.round(rp.pc*100)}%`,n:`How often teams convert 4th and ${rp.yl<=rp.ds?"goal from the "+rp.ds:rp.ds}.`},
+    {l:"Win probability now",v:`${Math.round(rp.wp*100)}%`,n:`${sit} with ${rp.t} left in the ${["1st","2nd","3rd","4th"][rp.q-1]} quarter.`}]);
+  callButtons([
+    {cls:"run",name:"Go for it",desc:"Keep the offense on the field."},
+    {cls:"pass",name:"Punt",desc:rp.p==null?"Inside their 35. Nobody punts here.":"Flip the field and play defense."},
+    {cls:"pa",name:"Field goal",desc:rp.k==null?"Out of range.":"Take the points."}]);
+  [...$("calls").children].forEach((b,j)=>{ if((j===1&&rp.p==null)||(j===2&&rp.k==null)){ b.disabled=true; b.classList.add("dim"); } });
+  startClock();
+}
+function animateKick(kind,done){
+  const holder = kind==="kick"?[26.65,-7]:[26.65,-14];
+  const target = kind==="kick"?[26.65+(rp.ok?0:(Math.random()<.5?-6:6)),rp.yl+10]:[26.65+(Math.random()*16-8),Math.min(rp.yl+5,(rp.kd||45)-6)];
+  const D=1800,t0=performance.now();
+  function fr(now){ const t=Math.min(1,(now-t0)/D), e=t<.15?0:(t-.15)/.85;
+    const b = t<.15 ? lerp([26.65,0],holder,t/.15) : lerp(holder,target,e);
+    els.ball.setAttribute("cx",PX(b[0])); els.ball.setAttribute("cy",PY(b[1]));
+    els.ball.setAttribute("rx",3.6+5*Math.sin(Math.PI*e)); els.ball.setAttribute("ry",2.4+3*Math.sin(Math.PI*e));
+    if(t<1) raf=requestAnimationFrame(fr); else done(); }
+  raf=requestAnimationFrame(fr);
+}
+function fourthPick(i){
+  if((i===1&&rp.p==null)||(i===2&&rp.k==null)) return;
+  phase="playing"; choice=i; cancelAnimationFrame(raf); lockCalls(i);
+  $("hint").textContent="Here's what really happened.";
+  $("tag").textContent=`Real play: ${rp.o} ${rp.ch==="go"?"went for it":rp.ch==="punt"?"punted":"kicked a field goal"}`; $("tag").style.display="block";
+  if(rp.ch==="go"){ const {play,o}=buildRealPlay(rp,F); animatePlay(play,o,()=>fourthFinish(i)); }
+  else animateKick(rp.ch,()=>fourthFinish(i));
+}
+function fourthFinish(i){
+  phase="result";
+  const mine=i>=0?CH4[i]:null, right=mine===rp.best, coachOk=rp.ch===rp.best;
+  score(right); vs4.n++; vs4.y+=right?1:0; vs4.c+=coachOk?1:0; store.set("td_vs4",vs4);
+  if(i>=0){
+    if(rp.ch==="go") stamp(realLabel(rp),!!rp.ok);
+    else if(rp.ch==="kick") stamp(rp.ok?"IT'S GOOD":"NO GOOD",!!rp.ok);
+    else stamp(`PUNT${rp.kd?", "+rp.kd+" YARDS":""}`,true);
+  }
+  [...$("calls").children].forEach((b,j)=>{ if(CH4[j]===rp.best) b.classList.add("answer"); });
+  const vals={go:rp.g,punt:rp.p,kick:rp.k}, maxv=Math.max(...Object.values(vals).filter(v=>v!=null));
+  const bars = CH4.map(c=>{ const v=vals[c]; if(v==null) return `<li class="no" style="--c:var(--${c==="go"?"run":c==="punt"?"pass":"pa"})"><span class="nm">${CH4NAME[c]}</span><span class="track"></span><span class="pc">–</span><span class="meta">${c==="punt"?"Not an option inside their 35.":"Out of field-goal range."}</span></li>`;
+    const tags=[c===mine?"your call":"",c===rp.ch?`${rp.o}'s call`:""].filter(Boolean).join(", ");
+    const meta = c==="go"?`Converts about ${Math.round(rp.pc*100)}% of the time.`:c==="kick"?`About ${Math.round(rp.pm*100)}% make rate from ${rp.yl+17} yards.`:"After an average net punt.";
+    return `<li class="${c===rp.best?"":"no"}" style="--c:var(--${c==="go"?"run":c==="punt"?"pass":"pa"})"><span class="nm">${CH4NAME[c]}${tags?`<small>${tags}</small>`:""}</span><span class="track"><span class="fill" style="display:block;width:${Math.round(v*100)}%"></span></span><span class="pc">${(v*100).toFixed(1)}%</span><span class="meta">${meta}</span></li>`; }).join("");
+  const gap = (maxv - Math.max(...Object.entries(vals).filter(([c,v])=>v!=null&&c!==rp.best).map(([,v])=>v)))*100;
+  const what = rp.ch==="go" ? `${rp.o} went for it and ${rp.ok?"converted":"was stopped"}.` : rp.ch==="kick" ? `${rp.o} kicked a ${rp.kd||rp.yl+17}-yard field goal. ${rp.ok?"Good.":"No good."}` : `${rp.o} punted.`;
+  $("sheet").innerHTML = `<div class="verdict ${right?"":"bad"}">${i<0?"The clock ran out. Delay of game counts as a wrong call.":right?`Right call. Streak ${stats.streak}.`:"Wrong call."}</div>
+    <h3>${CH4NAME[rp.best]} was the call.</h3>
+    <p class="lede">${rp.o}'s chance to win after each choice. ${CH4NAME[rp.best]} comes out ${gap.toFixed(1)} points ahead.</p>
+    <ul class="bars">${bars}</ul>
+    <div class="happened"><b>${what} ${coachOk?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${rp.desc.replace(/^\(\d+:\d+\)\s*/,"")}</p></div>
+    <p class="lede" style="color:var(--ink)">On ${vs4.n} ${vs4.n===1?"4th down":"4th downs"} you've called, you made the right call <b>${vs4.y}</b> ${vs4.y===1?"time":"times"}. The real coaches on ${vs4.n===1?"that snap":"those same snaps"}: <b>${vs4.c}</b>.</p>
+    <button class="next" id="nextBtn">Next 4th down<kbd>Enter</kbd></button>`;
+  $("sheet").hidden=false; $("nextBtn").addEventListener("click",next); $("hint").textContent="";
+}
+
+// ---------- you vs the NFL ----------
+function leagueRight(d){ let n=0,ok=0; for(const [k,c] of Object.entries(DATA.rates)){ if(k.split("|")[0]!==d||c.ok.length===3) continue; for(const cl of CALLS){ n+=c[cl].n; if(c.ok.includes(cl)) ok+=c[cl].n; } } return n?ok/n:0; }
+function renderYou(){
+  const dists=["1","2","3-4","5-7","8-10","11+","1 goal","2 goal","3-4 goal"], T=vsTotal(), pc=(a,b)=>b?Math.round(a/b*100)+"%":"–";
+  const rows=dists.map(d=>{ const v=vs[d]||{n:0,y:0,c:0}; return `<tr><th>${d.replace(" goal"," (goal to go)")}</th><td>${v.n?`${v.y}/${v.n}`:"–"}<small>${pc(v.y,v.n)}</small></td><td>${v.n?`${v.c}/${v.n}`:"–"}<small>${pc(v.c,v.n)}</small></td><td>${Math.round(leagueRight(d)*100)}%</td></tr>`; }).join("");
+  $("youBody").innerHTML = (T.n?`<p>On the ${T.n} graded snaps you've called, you made the right call <b>${pc(T.y,T.n)}</b> of the time. The real play callers on those same snaps: <b>${pc(T.c,T.n)}</b>.</p>`:`<p>Call a few real snaps and your record against the pros shows up here.</p>`)+
+   `<table class="nums"><tr><th>Yards to go</th><th>You</th><th>NFL callers, same snaps</th><th>NFL callers, all snaps</th></tr>${rows}</table>
+   <p style="font-size:14px;color:var(--muted)">A right call is the one that converted most often in that look, ${DATA.seasons}. Toss-ups don't count for you or for them. Look at 2 and 3–4 yards: that's where real play callers miss most, because they throw when the run converts better.</p>`;
+}
+// ---------- the numbers ----------
+function renderNumbers(){
+  const S=DATA.summary, R=DATA.rates, pc=x=>Math.round(x*100)+"%";
+  const dists=["1","2","3-4","5-7","8-10","11+"], boxes=["5 or fewer","6","7","8+"];
+  let h=`<table class="nums"><tr><th>Yards to go</th>${boxes.map(b=>`<th>${b==="5 or fewer"?"5 or fewer":b} in box</th>`).join("")}<th>Teams passed</th></tr>`;
+  dists.forEach(d=>{ h+=`<tr><th>${d}</th>`+boxes.map(b=>{ const c=R[d+"|"+b], t=c.ok.length===3, cls=t?"":c.ok.length===2&&c.ok.includes("pass")?"pass":c.best;
+     return `<td class="c-${cls}">${t?"Toss-up":okName(c).replace(" or play-action"," or PA")}<small>${pc(c[c.best].p)}</small></td>`; }).join("")+`<td>${pc(S[d].pass_share)}</td></tr>`; });
+  ["1 goal","2 goal","3-4 goal"].forEach(d=>{ const c=R[d+"|any"]; if(!c) return; const t=c.ok.length===3, cls=t?"":c.ok.length===2&&c.ok.includes("pass")?"pass":c.best;
+    h+=`<tr><th>${d.replace(" goal","")}, goal to go</th><td colspan="4" class="c-${cls}">${t?"Toss-up":okName(c)}<small>${pc(c[c.best].p)} convert, any box</small></td><td>${S[d]?pc(S[d].pass_share):"–"}</td></tr>`; });
+  h+="</table>";
+  const F4=FOURTH.summary;
+  const h4=`<h3 style="font-size:22px;margin:18px 0 6px">4th down: go, punt or kick</h3>
+   <p>When going for it was clearly the better call, coaches went for it <b>${pc(F4.best_go.coach_same)}</b> of the time. When punting was the call, they punted ${pc(F4.best_punt.coach_same)} of the time, and when a field goal was the call, they kicked ${pc(F4.best_kick.coach_same)}. On close calls, coaches lean safe.</p>
+   <table class="nums"><tr><th>4th and…</th><th>Model says go</th><th>Coaches went</th><th>Real 4th downs</th></tr>${Object.entries(F4.by_dist).map(([d,v])=>`<tr><th>${d}</th><td>${pc(v.model_go)}</td><td>${pc(v.coach_go)}</td><td>${v.n.toLocaleString()}</td></tr>`).join("")}</table>
+   <p style="font-size:14px;color:var(--muted)">Each choice is scored by the team's chance to win afterward. Going for it combines the real conversion rate at that distance with win probability after a conversion or a stop. A field goal uses real make rates by distance. A punt uses the average net punt from that spot. Win probability comes from a model trained on nflverse's play-by-play. Only decisions where one choice is at least ${(FOURTH.threshold*100).toFixed(1)} points better are graded. This is a simplified model: it doesn't account for timeouts or the strength of either team.</p>`;
+  $("numsBody").innerHTML = `<p>Every snap is a real 3rd or 4th down from the ${DATA.seasons} NFL seasons: ${DATA.n_total.toLocaleString()} graded plays, with box counts and play-action charting from nflverse.</p>
+   <p>On 3rd or 4th and 1, runs converted <b>${pc(S["1"].run)}</b> and passes <b>${pc(S["1"].pass)}</b>, but teams threw ${pc(S["1"].pass_share)} of the time. At 2 yards, runs converted ${pc(S["2"].run)} and passes ${pc(S["2"].pass)}, and teams threw <b>${pc(S["2"].pass_share)}</b> of the time. From about 5 yards out, passing wins.</p>
+   <div class="key"><span><i style="background:var(--run)"></i>Run</span><span><i style="background:var(--pass)"></i>Pass</span><span><i style="background:var(--pa)"></i>Play-action</span></div>${h}
+   <p style="font-size:14px;color:var(--muted)">The right call is whichever converted most often in that look. Small samples are pulled toward the average, play-action is compared against regular passes, and calls within 3 points of the best also count. This shows what happened, not what caused it: teams pick calls for reasons the data can't see. Defenders on the field are drawn from the real box count and personnel, not tracked positions.</p>${h4}`;
+}
+
+// ---------- wiring ----------
+function setMode(m){ mode=m; store.set("td_mode",m); next(); }
+document.querySelectorAll(".modes button").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.mode)));
+function openModal(id){ $(id).classList.add("show"); }
+document.querySelectorAll(".modal").forEach(m=>{ m.addEventListener("click",e=>{ if(e.target===m||e.target.hasAttribute("data-close")) m.classList.remove("show"); }); });
+$("howBtn").addEventListener("click",()=>openModal("how"));
+$("numsBtn").addEventListener("click",()=>{ renderNumbers(); openModal("nums"); });
+$("setBtn").addEventListener("click",()=>openModal("settings"));
+$("youBtn").addEventListener("click",()=>{ renderYou(); openModal("you"); });
+document.addEventListener("keydown",e=>{
+  const open=document.querySelector(".modal.show");
+  if(open){ if(e.key==="Escape"||e.key==="Enter") open.classList.remove("show"); return; }
+  if(e.target.tagName==="SELECT"||e.target.tagName==="TEXTAREA") return;
+  if(phase==="reading"&&["1","2","3"].includes(e.key)) pick(+e.key-1);
+  else if(phase==="result"&&(e.key==="Enter"||e.key===" ")){ e.preventDefault(); next(); }
+});
+$("clockSel").value = String(store.get("td_clock","15"));
+$("clockSel").addEventListener("change",()=>{ store.set("td_clock",$("clockSel").value); if(phase==="reading") startClock(); });
+function setTheme(t){ document.body.dataset.theme=t; $("themeSel").value=t; store.set("td_theme",t); }
+$("themeSel").addEventListener("change",e=>setTheme(e.target.value));
+setTheme(store.get("td_theme","board"));
+renderHeader();
+if(!store.get("td_seen",false)){ openModal("how"); store.set("td_seen",true); }
+next();
+
+</script>
+</body>
+</html>
