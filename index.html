@@ -64,6 +64,7 @@
   .stamp{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.8);font-stretch:125%;font-weight:900;font-size:46px;letter-spacing:-.5px;padding:6px 20px;border-radius:10px;background:var(--stampbg);opacity:0;transition:opacity .2s, transform .25s;pointer-events:none;white-space:nowrap;border-bottom:6px solid currentColor}
   .stamp small{display:block;font-size:15px;font-weight:700;font-stretch:100%;letter-spacing:0;color:var(--ink);opacity:.8;margin-bottom:2px}
   .stamp.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  .stamp.info{color:var(--dd)}
   .stamp.good{color:var(--go)} .stamp.bad{color:var(--stop)}
   @media (max-width:620px){.stamp{font-size:28px}}
   .tag{position:absolute;left:10px;top:10px;background:var(--stampbg);color:var(--ink);padding:4px 10px;border-radius:6px;font-size:14px;font-weight:700}
@@ -602,7 +603,12 @@ function tick(){
   } else if(txt) txt.textContent="∞";
   raf=requestAnimationFrame(tick);
 }
-function resetStage(){ ["fw","legend","reads","calls"].forEach(id=>$(id).hidden=false); $("stamp").className="stamp"; $("tag").style.display="none"; $("sheet").hidden=true; $("sheet").innerHTML=""; $("hint").textContent="Press 1, 2 or 3, or tap a call."; }
+function resetStage(){ shown=null; ["fw","legend","reads","calls"].forEach(id=>$(id).hidden=false); $("stamp").className="stamp"; $("tag").style.display="none"; $("sheet").hidden=true; $("sheet").innerHTML=""; $("hint").textContent="Press 1, 2 or 3, or tap a call."; }
+// before the snap: flash the player's call
+function intro(callName, go){
+  const st=$("stamp"); st.innerHTML=`<small>Your call</small>${callName.toUpperCase()}`; st.className="stamp show info";
+  setTimeout(()=>{ st.className="stamp info"; go(); }, 800);
+}
 function stamp(text,good,who){ $("stamp").innerHTML=(who?`<small>${who}</small>`:"")+text; $("stamp").className="stamp show "+(good?"good":"bad"); }
 function delayOfGame(){ phase="result"; lockCalls(-1); stamp("DELAY OF GAME",false); if(mode==="fourth") fourthFinish(-1); else realFinish(-1); }
 
@@ -646,12 +652,23 @@ function realNext(){
   callButtons(CALLS.map(c=>({cls:c,name:CALLNAME[c],desc:CALLDESC[c]})));
   startClock();
 }
+// Build the play the player called. Same call as the real team: the real play. Different call: simulated from how often that call converts in this look.
+let shown=null;
+function simulateCall(p, call, prob){
+  const ok = Math.random() < prob, d=p.ds, gl=p.yl<=p.ds, rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+  const s = {...p, c:call, ok:ok?1:0, sim:true, sn:false, rl:["left","middle","right"][rnd(0,2)], pl:["left","middle","right"][rnd(0,2)]};
+  if(call==="run"){ s.pt="run"; s.y = ok ? (gl? p.yl : d+rnd(0,5)) : Math.max(-2, d-1-rnd(0,2)); s.ay=null; }
+  else if(ok){ s.pt="complete"; s.ay = gl? Math.max(1,p.yl-rnd(0,1)) : d+rnd(0,6); s.y = gl? p.yl : s.ay+rnd(0,6); }
+  else { const r=Math.random(); if(r<.45){ s.pt="inc"; s.ay=d+rnd(1,8); s.y=0; } else if(r<.62){ s.pt="sack"; s.y=-rnd(4,9); s.ay=null; } else { s.pt="complete"; s.y=Math.max(0,d-rnd(1,3)); s.ay=Math.max(-2,s.y-rnd(0,3)); } }
+  return s;
+}
 function realPick(i){
   phase="playing"; choice=i; cancelAnimationFrame(raf); lockCalls(i);
-  $("hint").textContent="Here's what really happened.";
-  $("tag").textContent=`Real play: ${rp.o} ${CALLVERB[rp.c]}`; $("tag").style.display="block";
-  const {play,o}=buildRealPlay(rp,F);
-  animatePlay(play,o,()=>realFinish(i));
+  const mine=CALLS[i], same = mine===rp.c;
+  shown = same ? rp : simulateCall(rp, mine, DATA.rates[rp.k][mine].p);
+  $("hint").textContent = same ? `Same call ${rp.o} made. This is the real play.` : `Your ${CALLNAME[mine].toLowerCase()} plays out based on how often it converts in this look.`;
+  $("tag").textContent = same ? `Your call: ${CALLNAME[mine]} (the real play)` : `Your call: ${CALLNAME[mine]}`; $("tag").style.display="block";
+  intro(CALLNAME[mine], ()=>{ const {play,o}=buildRealPlay(shown,F); animatePlay(play,o,()=>realFinish(i)); });
 }
 function realFinish(i){
   phase="result";
@@ -660,7 +677,7 @@ function realFinish(i){
   if(!toss){ score(right); addVs(dist,right,realOk); }
   logRecent(ord(rp.dn)+" & "+(rp.yl<=rp.ds?"Goal":rp.ds), spotText(rp.yl), rp.o, mine?CALLNAME[mine]:"Clock", toss?"t":right?"r":"w");
   if(mode==="daily"){ daily.res.push(right?1:0); (daily.coach=daily.coach||[]).push(realOk?1:0); (daily.pick=daily.pick||[]).push(mine); saveDaily(); renderCtx(); }
-  if(i>=0) stamp(realLabel(rp), !!rp.ok, `Real play: ${rp.o} ${rp.c==="run"?"ran it":rp.c==="pa"?"ran play-action":"passed"}`);
+  if(i>=0) stamp(realLabel(shown), !!shown.ok, shown.sim ? `Your ${CALLNAME[mine].toLowerCase()}` : `Real play: ${rp.o} ${rp.c==="run"?"ran it":rp.c==="pa"?"ran play-action":"passed"}`);
   [...$("calls").children].forEach((b,j)=>{ if(r.ok.includes(CALLS[j])) b.classList.add("answer"); });
   const verdict = toss?"Toss-up. This one doesn't count.":i<0?"The clock ran out. Delay of game counts as a wrong call.":right?`Right call. Streak ${stats.streak}.`:"Wrong call.";
   const head = toss?"Every call converts about the same here.":`${okName(r)} was the call.`;
@@ -678,6 +695,7 @@ function realFinish(i){
   $("sheet").innerHTML = `<div class="verdict ${right||toss?"":"bad"}" style="${toss?"color:var(--muted)":""}">${verdict}</div><h3>${head}</h3>
     <p class="lede">How often each call converted on ${lookTxt}, ${DATA.seasons}.</p>
     <ul class="bars">${bars}</ul>
+    ${shown&&shown.sim?`<p class="lede" style="color:var(--ink)">Your ${CALLNAME[mine].toLowerCase()} was ${shown.ok?"good for a first down":"stopped"} in this simulation, based on the ${Math.round(r[mine].p*100)}% rate above. ${rp.o} made a different call:</p>`:""}
     <div class="happened"><b>${rp.o} ${CALLVERB[rp.c]} and ${rp.ok?"converted":"was stopped"}. ${realOk?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${desc}</p>${defl}</div>
     ${vsLine}
     <button class="next" id="nextBtn">${nextLabel}<kbd>Enter</kbd></button>`;
@@ -740,7 +758,7 @@ function fourthNext(){
 }
 function animateKick(kind,done){
   const holder = kind==="kick"?[26.65,-7]:[26.65,-14];
-  const target = kind==="kick"?[26.65+(rp.ok?0:(Math.random()<.5?-6:6)),rp.yl+10]:[26.65+(Math.random()*16-8),Math.min(rp.yl+5,(rp.kd||45)-6)];
+  const S=shown||rp; const target = kind==="kick"?[26.65+(S.ok?0:(Math.random()<.5?-6:6)),rp.yl+10]:[26.65+(Math.random()*16-8),Math.min(rp.yl+5,(S.kd||45)-6)];
   const D=1800,t0=performance.now(); ballPrev=null;
   const rush = sc.def.filter(d=>DLINE.includes(d[1])||d[1]==="LB");
   function fr(now){ const t=Math.min(1,(now-t0)/D), e=t<.15?0:(t-.15)/.85;
@@ -753,10 +771,14 @@ function animateKick(kind,done){
 function fourthPick(i){
   if((i===1&&rp.p==null)||(i===2&&rp.k==null)) return;
   phase="playing"; choice=i; cancelAnimationFrame(raf); lockCalls(i);
-  $("hint").textContent="Here's what really happened.";
-  $("tag").textContent=`Real play: ${rp.o} ${rp.ch==="go"?"went for it":rp.ch==="punt"?"punted":"kicked a field goal"}`; $("tag").style.display="block";
-  if(rp.ch==="go"){ const {play,o}=buildRealPlay(rp,F); animatePlay(play,o,()=>fourthFinish(i)); }
-  else animateKick(rp.ch,()=>fourthFinish(i));
+  const mine=CH4[i], same = mine===rp.ch, rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+  if(same) shown = rp;
+  else if(mine==="go") shown = {...simulateCall(rp, rp.ds<=2?"run":"pass", rp.pc), ch:"go"};
+  else if(mine==="kick") shown = {...rp, ch:"kick", ok: Math.random()<rp.pm ? 1:0, kd: rp.yl+17, sim:true};
+  else shown = {...rp, ch:"punt", ok:1, kd: Math.min(rp.yl+8, rnd(38,50)), sim:true};
+  $("hint").textContent = same ? `Same call ${rp.o} made. This is the real play.` : `Your call plays out using real rates from this spot.`;
+  $("tag").textContent = same ? `Your call: ${CH4NAME[mine]} (the real play)` : `Your call: ${CH4NAME[mine]}`; $("tag").style.display="block";
+  intro(CH4NAME[mine], ()=>{ if(shown.ch==="go"){ const {play,o}=buildRealPlay(shown,F); animatePlay(play,o,()=>fourthFinish(i)); } else animateKick(shown.ch,()=>fourthFinish(i)); });
 }
 function fourthFinish(i){
   phase="result";
@@ -764,9 +786,10 @@ function fourthFinish(i){
   score(right); vs4.n++; vs4.y+=right?1:0; vs4.c+=coachOk?1:0; store.set("td_vs4",vs4);
   logRecent("4th & "+(rp.yl<=rp.ds?"Goal":rp.ds), spotText(rp.yl), rp.o, mine?CH4NAME[mine]:"Clock", right?"r":"w");
   if(i>=0){
-    if(rp.ch==="go") stamp(realLabel(rp),!!rp.ok,`Real play: ${rp.o} went for it`);
-    else if(rp.ch==="kick") stamp(rp.ok?"IT'S GOOD":"NO GOOD",!!rp.ok,`Real play: ${rp.o} kicked`);
-    else stamp(`PUNT${rp.kd?", "+rp.kd+" YARDS":""}`,true,`Real play: ${rp.o} punted`);
+    const who = shown.sim ? "Your call" : `Real play: ${rp.o}`;
+    if(shown.ch==="go") stamp(realLabel(shown),!!shown.ok,who);
+    else if(shown.ch==="kick") stamp(shown.ok?"IT'S GOOD":"NO GOOD",!!shown.ok,who);
+    else stamp(`PUNT${shown.kd?", "+shown.kd+" YARDS":""}`,true,who);
   }
   [...$("calls").children].forEach((b,j)=>{ if(CH4[j]===rp.best) b.classList.add("answer"); });
   const vals={go:rp.g,punt:rp.p,kick:rp.k}, maxv=Math.max(...Object.values(vals).filter(v=>v!=null));
@@ -780,6 +803,7 @@ function fourthFinish(i){
     <h3>${CH4NAME[rp.best]} was the call.</h3>
     <p class="lede">${rp.o}'s chance to win after each choice. ${CH4NAME[rp.best]} comes out ${gap.toFixed(1)} points ahead.</p>
     <ul class="bars">${bars}</ul>
+    ${shown&&shown.sim?`<p class="lede" style="color:var(--ink)">Your ${CH4NAME[mine].toLowerCase()} was simulated from the real rates above. ${rp.o} made a different call:</p>`:""}
     <div class="happened"><b>${what} ${coachOk?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${rp.desc.replace(/^\(\d+:\d+\)\s*/,"")}</p></div>
     <p class="lede" style="color:var(--ink)">On ${vs4.n} ${vs4.n===1?"4th down":"4th downs"} you've called, you made the right call <b>${vs4.y}</b> ${vs4.y===1?"time":"times"}. The real coaches on ${vs4.n===1?"that snap":"those same snaps"}: <b>${vs4.c}</b>.</p>
     <button class="next" id="nextBtn">Next 4th down<kbd>Enter</kbd></button>`;
