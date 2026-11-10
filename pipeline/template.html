@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="night">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -63,6 +63,7 @@
   svg#field{display:block;width:100%;height:auto}
   .stamp{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.8);font-stretch:125%;font-weight:900;font-size:46px;letter-spacing:-.5px;padding:6px 20px;border-radius:10px;background:var(--stampbg);opacity:0;transition:opacity .2s, transform .25s;pointer-events:none;white-space:nowrap;border-bottom:6px solid currentColor}
   .stamp small{display:block;font-size:15px;font-weight:700;font-stretch:100%;letter-spacing:0;color:var(--ink);opacity:.8;margin-bottom:2px}
+  .stamp.off{transition:none;opacity:0}
   .stamp.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
   .stamp.info{color:var(--dd)}
   .stamp.good{color:var(--go)} .stamp.bad{color:var(--stop)}
@@ -160,6 +161,18 @@
     .sub{margin:8px 0;min-height:0} .sub .links{margin-left:0;gap:12px;font-size:14px}
   }
   @media (max-width:979px){ .calls{order:1} .hint{order:2} .reads{order:3;border-top:1px solid var(--rule)} .sheet{order:4} }
+  .sheet .next{position:sticky;bottom:10px;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:2}
+  @media (min-width:980px){
+    .sheet{padding:14px 16px 14px}
+    .sheet h3{font-size:24px;margin:0 0 4px}
+    .sheet .lede{font-size:14px;margin:0 0 6px}
+    .bars{margin-bottom:10px}
+    .bars li{padding:4px 0;row-gap:0}
+    .bars .nm{font-size:15px} .bars .pc{font-size:16px}
+    .bars .meta{font-size:12px;margin-top:-2px}
+    .happened{padding:9px 12px;margin-bottom:10px} .happened p{font-size:14px} .happened .def{margin-top:4px;font-size:13px}
+    .next{padding:11px;font-size:17px}
+  }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -603,7 +616,7 @@ function tick(){
   } else if(txt) txt.textContent="∞";
   raf=requestAnimationFrame(tick);
 }
-function resetStage(){ shown=null; ["fw","legend","reads","calls"].forEach(id=>$(id).hidden=false); $("stamp").className="stamp"; $("tag").style.display="none"; $("sheet").hidden=true; $("sheet").innerHTML=""; $("hint").textContent="Press 1, 2 or 3, or tap a call."; }
+function resetStage(){ shown=null; $("stamp").className="stamp off"; $("stamp").innerHTML=""; ["fw","legend","reads","calls"].forEach(id=>$(id).hidden=false); $("tag").style.display="none"; $("sheet").hidden=true; $("sheet").innerHTML=""; $("hint").textContent="Press 1, 2 or 3, or tap a call."; }
 // before the snap: flash the player's call
 function intro(callName, go){
   const st=$("stamp"); st.innerHTML=`<small>Your call</small>${callName.toUpperCase()}`; st.className="stamp show info";
@@ -858,7 +871,7 @@ document.addEventListener("keydown",e=>{
 });
 $("clockSel").value = String(store.get("td_clock","15"));
 $("clockSel").addEventListener("change",()=>{ store.set("td_clock",$("clockSel").value); if(phase==="reading") startClock(); });
-function setTheme(t){ document.body.dataset.theme=t; $("themeSel").value=t; store.set("td_theme2",t); }
+function setTheme(t){ document.body.dataset.theme=t; document.documentElement.dataset.theme=t; $("themeSel").value=t; store.set("td_theme2",t); }
 $("themeSel").addEventListener("change",e=>setTheme(e.target.value));
 setTheme(store.get("td_theme2","night"));
 renderHeader();
