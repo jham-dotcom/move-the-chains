@@ -215,7 +215,19 @@ function ord(d){ return ["1st","2nd","3rd","4th"][d-1]; }
 function goalToGo(s){ return s.ytg <= s.dist; }
 
 
-let els = {};
+let els = {}, ballAng = 90, ballPrev = null;
+// football: position on the field, angle in degrees, lift in pixels (height of a throw or kick)
+function setBall(p,ang,lift){
+  const x=PX(p[0]), y=PY(p[1]);
+  els.ballShadow.setAttribute("cx",x.toFixed(1)); els.ballShadow.setAttribute("cy",(y+3).toFixed(1));
+  els.ballShadow.setAttribute("rx",Math.max(2,5-lift/12).toFixed(1)); els.ballShadow.setAttribute("opacity",Math.max(.25,1-lift/60).toFixed(2));
+  els.ball.setAttribute("transform",`translate(${x.toFixed(1)},${(y-lift).toFixed(1)}) rotate(${ang.toFixed(0)}) scale(${(1+lift/70).toFixed(3)})`);
+}
+// keep the ball pointed the way it is moving
+function aimBall(p){
+  if(ballPrev){ const dx=PX(p[0])-PX(ballPrev[0]), dy=PY(p[1])-PY(ballPrev[1]); if(Math.hypot(dx,dy)>0.4) ballAng=Math.atan2(dy,dx)*180/Math.PI; }
+  ballPrev=p; return ballAng;
+}
 function el(tag, attrs, parent){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
 
 function drawField(s){
@@ -272,11 +284,16 @@ function drawField(s){
     els.def[id]=g;
   });
   // ball
-  els.ball = el("ellipse",{cx:0,cy:0,rx:3.6,ry:2.4,fill:"#8a4b20",stroke:"#fff","stroke-width":.8},svg);
+  els.ballShadow = el("ellipse",{cx:0,cy:0,rx:5,ry:1.8,fill:"rgba(0,0,0,.35)"},svg);
+  els.ball = el("g",{},svg);
+  el("ellipse",{cx:0,cy:0,rx:6.2,ry:3.8,fill:"#8b4513",stroke:"#3b1d08","stroke-width":1},els.ball);
+  el("line",{x1:-2.4,y1:0,x2:2.4,y2:0,stroke:"#fff","stroke-width":1.1,"stroke-linecap":"round"},els.ball);
+  [-1.5,0,1.5].forEach(dx=>el("line",{x1:dx,y1:-1.1,x2:dx,y2:1.1,stroke:"#fff","stroke-width":.8},els.ball));
+  ballAng = 90;
   // initial positions
   for(const id in F) place(els.off[id], F[id]);
   s.def.forEach(([id,,x,y])=>place(els.def[id],[x,y]));
-  place(els.ball,[F.C[0],0]);
+  setBall([F.C[0],0],90,0);
 }
 function place(g,[x,y]){ g.setAttribute("transform","translate("+PX(x).toFixed(1)+","+PY(y).toFixed(1)+")"); }
 
@@ -440,9 +457,19 @@ function animatePlay(play,o,done){
     }
     else defT[id]={start,end:lerp(start,endPt,0.32),until:1};
   });
-  const D = 2600, t0 = performance.now();
+  const D = 2600, SNAP = 340, t0 = performance.now();
+  const snapTo = F.QB[1] < -2 ? F.QB : [F.QB[0], F.QB[1]+0.4];
+  const throwFrom = along(paths.QB,Math.min(1,tThrow/0.4));
+  const flight = Math.hypot(catchPt[0]-throwFrom[0], catchPt[1]-throwFrom[1]);
+  ballPrev = null; ballAng = 90;
   function frame(now){
-    const t = Math.min(1,(now-t0)/D);
+    const el0 = now-t0;
+    if(el0 < SNAP){ // the snap: center to quarterback, everyone else frozen
+      const f = el0/SNAP, b = lerp([F.C[0],0], snapTo, f);
+      setBall(b, aimBall(b), Math.sin(Math.PI*f)*(F.QB[1]<-2?6:1));
+      raf=requestAnimationFrame(frame); return;
+    }
+    const t = Math.min(1,(el0-SNAP)/D);
     for(const id in paths){
       let pt;
       if(id===car) pt = along(paths[id], t);
@@ -461,7 +488,12 @@ function animatePlay(play,o,done){
     else if(t<tCatch) b = lerp(along(paths.QB,Math.min(1,tThrow/0.4)), catchPt, (t-tThrow)/(tCatch-tThrow));
     else if(o.t==="inc") b = lerp(catchPt,endPt,Math.min(1,(t-tCatch)/0.08));
     else b = along(paths[car], t);
-    els.ball.setAttribute("cx",PX(b[0])); els.ball.setAttribute("cy",PY(b[1]));
+    let lift = 0;
+    if(o.t!=="sack" && car!=="QB" && t>=tThrow && t<tCatch){
+      const f=(t-tThrow)/(tCatch-tThrow);
+      lift = Math.sin(Math.PI*f) * (play.kind==="run" ? 3 : Math.min(42, 6+flight*1.3));
+    }
+    setBall(b, aimBall(b), lift);
     if(t<1) raf=requestAnimationFrame(frame); else done();
   }
   raf=requestAnimationFrame(frame);
@@ -690,13 +722,12 @@ function fourthNext(){
 function animateKick(kind,done){
   const holder = kind==="kick"?[26.65,-7]:[26.65,-14];
   const target = kind==="kick"?[26.65+(rp.ok?0:(Math.random()<.5?-6:6)),rp.yl+10]:[26.65+(Math.random()*16-8),Math.min(rp.yl+5,(rp.kd||45)-6)];
-  const D=1800,t0=performance.now();
+  const D=1800,t0=performance.now(); ballPrev=null;
   const rush = sc.def.filter(d=>DLINE.includes(d[1])||d[1]==="LB");
   function fr(now){ const t=Math.min(1,(now-t0)/D), e=t<.15?0:(t-.15)/.85;
     rush.forEach(([id,lab,x,y])=>place(els.def[id], lerp([x,y],[x*0.8+holder[0]*0.2, DLINE.includes(lab)?-2.2:-0.5], Math.min(1,t/0.5))));
     const b = t<.15 ? lerp([26.65,0],holder,t/.15) : lerp(holder,target,e);
-    els.ball.setAttribute("cx",PX(b[0])); els.ball.setAttribute("cy",PY(b[1]));
-    els.ball.setAttribute("rx",3.6+5*Math.sin(Math.PI*e)); els.ball.setAttribute("ry",2.4+3*Math.sin(Math.PI*e));
+    setBall(b, aimBall(b), t<.15 ? Math.sin(Math.PI*t/.15)*6 : Math.sin(Math.PI*e)*(kind==="kick"?40:55));
     if(t<1) raf=requestAnimationFrame(fr); else done(); }
   raf=requestAnimationFrame(fr);
 }
