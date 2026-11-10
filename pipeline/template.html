@@ -544,7 +544,7 @@ function saveStats(){ store.set("td_stats",stats); }
 function renderHeader(){ $("sStreak").textContent=stats.streak; $("sBest").textContent=stats.best; $("sRW").textContent=stats.right+"–"+stats.wrong; }
 function score(right){ if(right){stats.right++;stats.streak++;stats.best=Math.max(stats.best,stats.streak);} else {stats.wrong++;stats.streak=0;} saveStats(); renderHeader(); }
 
-let mode = store.get("td_mode","daily"), team = store.get("td_team","ALL");
+let mode = "free", team = store.get("td_team","ALL");
 let F = FORM, sc=null, rp=null, phase="idle", raf=null, timerStart=0, timerDur=15000, choice=null, lastOutcome=null;
 let freeOrder=[], freeIdx=-1;
 if(!["daily","free","fourth"].includes(mode)) mode="daily";
