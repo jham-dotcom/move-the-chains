@@ -15,9 +15,9 @@
     --yellow:#ffd23f; --field:#2f8a3a; --field2:#2a7e35; --stampbg:rgba(255,255,255,.92);
   }
   [data-theme="night"]{
-    --bg:#0d1626; --surface:#142036; --surface2:#1a2944; --ink:#eaf0fa; --muted:#93a3bd; --rule:#2a3a58;
-    --bugbg:#05090f; --bugink:#eaf0fa; --dd:#ffd23f; --ddink:#14213d;
-    --run:#3fbf74; --pass:#5b8ff0; --pa:#f0a32a; --stop:#ff6b5e; --go:#3fbf74; --stampbg:rgba(13,22,38,.9);
+    --bg:#0c1322; --surface:#141e34; --surface2:#1a2742; --ink:#eef2f8; --muted:#97a6c3; --rule:#2a3a5c;
+    --bugbg:#070c17; --bugink:#eef2f8; --dd:#ffb21f; --ddink:#1a1204;
+    --run:#3fbf74; --pass:#5b8ff0; --pa:#f0a32a; --stop:#ff6b5a; --go:#6fe08a; --yellow:#ffb21f; --stampbg:rgba(12,19,34,.88);
   }
   [data-theme="gameday"]{
     --bg:#2b0d12; --surface:#3b141a; --surface2:#48191f; --ink:#fbf1ea; --muted:#d1a7a2; --rule:#5f2a31;
@@ -128,13 +128,36 @@
   .nums td.c-run{box-shadow:inset 0 -4px 0 var(--run)} .nums td.c-pass{box-shadow:inset 0 -4px 0 var(--pass)} .nums td.c-pa{box-shadow:inset 0 -4px 0 var(--pa)}
   .film td.ok{color:var(--go)} .film td.no{color:var(--stop)}
   .key{display:flex;gap:14px;font-size:13px;color:var(--muted)} .key i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+  .side{display:flex;flex-direction:column}
+  @media (min-width:980px){
+    .wrap{max-width:1180px}
+    .body{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(340px,1fr);align-items:start}
+    .side{border-left:1px solid var(--rule);align-self:stretch}
+    .reads{grid-template-columns:1fr}
+    .reads div{border-right:0;border-bottom:1px solid var(--rule);padding:10px 16px}
+    .reads div:last-child{border-bottom:0}
+    .reads b{font-size:21px}
+    .calls{grid-template-columns:1fr;gap:8px;border-top:1px solid var(--rule)}
+    .call{padding:9px 12px 10px} .call .n{font-size:19px}
+    .sheet{border-top:0}
+    .bars li{grid-template-columns:105px 1fr 54px}
+    .sheet h3{font-size:26px}
+  }
+  @media (max-width:620px){
+    .legend{display:none}
+    .calls{grid-template-columns:repeat(3,1fr)!important;gap:6px;padding:10px}
+    .call{padding:8px 8px 9px;border-top-width:5px} .call .n{font-size:16px;font-stretch:105%} .call .d{display:none} .call kbd{display:none}
+    .top{gap:8px} .mark{font-size:22px;width:100%} .record{gap:10px} .record b{font-size:17px}
+    .sub{margin:8px 0;min-height:0} .sub .links{margin-left:0;gap:12px;font-size:14px}
+  }
+  @media (max-width:979px){ .calls{order:1} .hint{order:2} .reads{order:3;border-top:1px solid var(--rule)} .sheet{order:4} }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
-<body data-theme="board">
+<body data-theme="night">
 <div class="wrap">
   <header class="top">
-    <div class="mark"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="7" fill="var(--ink)"/><path d="M8.5 7v16M21.5 7v16" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.5 9.5 Q15 17 21.5 9.5" fill="none" stroke="var(--dd)" stroke-width="2.4" stroke-dasharray="2.2 1.6" stroke-linecap="round"/><path d="M6 23h5M19 23h5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>Move the Chains</div>
+    <div class="mark"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="7" fill="var(--dd)"/><path d="M8.5 7v16M21.5 7v16" stroke="var(--ddink)" stroke-width="2.4" stroke-linecap="round"/><path d="M8.5 9.5 Q15 17 21.5 9.5" fill="none" stroke="var(--ddink)" stroke-width="2.4" stroke-dasharray="2.2 1.6" stroke-linecap="round" opacity=".7"/><path d="M6 23h5M19 23h5" stroke="var(--ddink)" stroke-width="2" stroke-linecap="round"/></svg>Move the Chains</div>
     <nav class="modes" role="tablist" aria-label="Game mode">
       <button role="tab" data-mode="daily">Daily 10</button>
       <button role="tab" data-mode="free">Free play</button>
@@ -146,12 +169,15 @@
   <div class="sub"><div id="ctx"></div><div class="links"><button class="linkbtn" id="howBtn">How to play</button><button class="linkbtn" id="youBtn">You vs. the NFL</button><button class="linkbtn" id="numsBtn">The numbers</button></div></div>
   <section class="stage" aria-live="polite">
     <div class="bug" id="bug"></div>
+    <div class="body"><div class="left">
     <div class="fieldwrap" id="fw"><svg id="field" viewBox="0 0 533 340" role="img" aria-label="Pre-snap alignment"></svg><div class="stamp" id="stamp"></div><div class="tag" id="tag" style="display:none"></div></div>
     <div class="legend" id="legend"><span>O offense</span><span>X defense</span><span><b style="color:#7fb2ff">━</b> line of scrimmage</span><span><b style="color:#f2e21c">━</b> line to gain</span></div>
+    </div><div class="side">
     <div class="reads" id="reads"></div>
     <div class="calls" id="calls"></div>
     <div class="hint" id="hint"></div>
     <div class="sheet" id="sheet" hidden></div>
+    </div></div>
   </section>
 </div>
 
@@ -169,7 +195,7 @@
     <option value="5">5 sec (hurry-up)</option><option value="10">10 sec</option><option value="15" selected>15 sec (regular)</option>
     <option value="20">20 sec</option><option value="25">25 sec (college clock)</option><option value="30">30 sec</option>
     <option value="40">40 sec (NFL play clock)</option><option value="0">Off</option></select></label>
-  <label>Theme <select id="themeSel"><option value="board">Whiteboard</option><option value="night">Night game</option><option value="gameday">Game day</option></select></label>
+  <label>Theme <select id="themeSel"><option value="night">Night game</option><option value="board">Whiteboard</option><option value="gameday">Game day</option></select></label>
   <button class="next" data-close>Done</button></div></div>
 <script id="realdata" type="application/json">__GAME_DATA__</script>
 <script id="fourthdata" type="application/json">__FOURTH_DATA__</script>
@@ -359,6 +385,7 @@ function realLabel(p){
 }
 const pct = x=>Math.round(x*100)+"%";
 
+const DLINE=["DL","DE","DT","NT"];
 function animatePlay(play,o,done){
   const paths = {};
   // build each offensive player's path
@@ -396,9 +423,21 @@ function animatePlay(play,o,done){
   const fastIds = new Set([...OL,"QB"]);
   // defense targets
   const defT = {};
-  sc.def.forEach(([id,,x,y])=>{
+  const dlRank = sc.def.filter(d=>DLINE.includes(d[1])).sort((a,b)=>Math.abs(b[2]-26.65)-Math.abs(a[2]-26.65)).map(d=>d[0]);
+  sc.def.forEach(([id,lab,x,y])=>{
     const start=[x,y];
     if(id===o.by) defT[id]={start,end:[endPt[0]+(o.t==="inc"?0.3:0.4), endPt[1]+0.9], until: o.t==="inc"?tCatch:1};
+    else if(DLINE.includes(lab)){
+      const passPlay = play.kind==="pass" || play.passSet;
+      if(passPlay){
+        const qbSet = paths.QB[Math.min(1,paths.QB.length-1)], side = x<26.65?-1:1;
+        const edge = dlRank.indexOf(id) < 2 && dlRank.length>=4;
+        const tgt = edge ? [qbSet[0]+side*3, qbSet[1]+1.3] : [x*0.85+26.65*0.15, -2.3];
+        defT[id]={start,end:lerp(start,tgt,edge?0.9:1),until:edge?0.8:0.45};
+      } else {
+        defT[id]={start,end:[x+(endPt[0]-x)*0.3,-1.3],until:0.45};
+      }
+    }
     else defT[id]={start,end:lerp(start,endPt,0.32),until:1};
   });
   const D = 2600, t0 = performance.now();
@@ -591,7 +630,7 @@ function realFinish(i){
     <div class="happened"><b>${rp.o} ${CALLVERB[rp.c]} and ${rp.ok?"converted":"was stopped"}. ${realOk?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${desc}</p>${defl}</div>
     ${vsLine}
     <button class="next" id="nextBtn">${nextLabel}<kbd>Enter</kbd></button>`;
-  $("sheet").hidden=false;
+  $("sheet").hidden=false; $("reads").hidden=true; $("calls").hidden=true;
   $("nextBtn").addEventListener("click",next);
   $("hint").textContent="";
 }
@@ -652,7 +691,9 @@ function animateKick(kind,done){
   const holder = kind==="kick"?[26.65,-7]:[26.65,-14];
   const target = kind==="kick"?[26.65+(rp.ok?0:(Math.random()<.5?-6:6)),rp.yl+10]:[26.65+(Math.random()*16-8),Math.min(rp.yl+5,(rp.kd||45)-6)];
   const D=1800,t0=performance.now();
+  const rush = sc.def.filter(d=>DLINE.includes(d[1])||d[1]==="LB");
   function fr(now){ const t=Math.min(1,(now-t0)/D), e=t<.15?0:(t-.15)/.85;
+    rush.forEach(([id,lab,x,y])=>place(els.def[id], lerp([x,y],[x*0.8+holder[0]*0.2, DLINE.includes(lab)?-2.2:-0.5], Math.min(1,t/0.5))));
     const b = t<.15 ? lerp([26.65,0],holder,t/.15) : lerp(holder,target,e);
     els.ball.setAttribute("cx",PX(b[0])); els.ball.setAttribute("cy",PY(b[1]));
     els.ball.setAttribute("rx",3.6+5*Math.sin(Math.PI*e)); els.ball.setAttribute("ry",2.4+3*Math.sin(Math.PI*e));
@@ -691,7 +732,7 @@ function fourthFinish(i){
     <div class="happened"><b>${what} ${coachOk?"Their call matched the numbers.":"Their call went against the numbers."}</b><p>${rp.desc.replace(/^\(\d+:\d+\)\s*/,"")}</p></div>
     <p class="lede" style="color:var(--ink)">On ${vs4.n} ${vs4.n===1?"4th down":"4th downs"} you've called, you made the right call <b>${vs4.y}</b> ${vs4.y===1?"time":"times"}. The real coaches on ${vs4.n===1?"that snap":"those same snaps"}: <b>${vs4.c}</b>.</p>
     <button class="next" id="nextBtn">Next 4th down<kbd>Enter</kbd></button>`;
-  $("sheet").hidden=false; $("nextBtn").addEventListener("click",next); $("hint").textContent="";
+  $("sheet").hidden=false; $("reads").hidden=true; $("calls").hidden=true; $("nextBtn").addEventListener("click",next); $("hint").textContent="";
 }
 
 // ---------- you vs the NFL ----------
@@ -742,9 +783,9 @@ document.addEventListener("keydown",e=>{
 });
 $("clockSel").value = String(store.get("td_clock","15"));
 $("clockSel").addEventListener("change",()=>{ store.set("td_clock",$("clockSel").value); if(phase==="reading") startClock(); });
-function setTheme(t){ document.body.dataset.theme=t; $("themeSel").value=t; store.set("td_theme",t); }
+function setTheme(t){ document.body.dataset.theme=t; $("themeSel").value=t; store.set("td_theme2",t); }
 $("themeSel").addEventListener("change",e=>setTheme(e.target.value));
-setTheme(store.get("td_theme","board"));
+setTheme(store.get("td_theme2","night"));
 renderHeader();
 if(!store.get("td_seen",false)){ openModal("how"); store.set("td_seen",true); }
 next();
